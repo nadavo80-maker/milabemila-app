@@ -426,13 +426,20 @@ function setGrade(g){
 /* ---------- internet spelling, translation and photo reading (website only) ---------- */
 const NET = !window.claude;   // inside Claude the page can't reach other sites
 async function getJSON(url){ const r = await fetch(url); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function inDict(w){
+  const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`);
+  if(r.status===404) return false;
+  if(!r.ok) throw new Error(r.status);
+  return true;
+}
 async function spellCheck(word){
-  const w = word.trim().toLowerCase();
-  const sug = await getJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(w)}&max=5`);
-  if(sug.some(x=>x.word.toLowerCase()===w)) return {chk:"ok"};
-  const sp = await getJSON(`https://api.datamuse.com/words?sp=${encodeURIComponent(w)}&max=1`);
-  if(sp[0] && sp[0].word.toLowerCase()===w) return {chk:"ok"};
-  return sug[0] ? {chk:"sug", sug:sug[0].word} : {chk:"bad"};
+  const w = word.trim().toLowerCase().replace(/\s+/g," ");
+  let ok = true;
+  for(const part of w.split(" ")){ if(!(await inDict(part))){ ok=false; break; } }
+  if(ok) return {chk:"ok"};
+  const sug = await getJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(w)}&max=6`);
+  const alt = sug.map(x=>x.word.toLowerCase()).find(x=>x!==w);
+  return alt ? {chk:"sug", sug:alt} : {chk:"bad"};
 }
 async function translateHe(word){
   const j = await getJSON(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|he`);
