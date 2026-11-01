@@ -234,6 +234,14 @@ if (!state || !Array.isArray(state.lists)) state = sampleState();
 if (!GRADES.includes(state.grade)) state.grade = null;
 if (!state.prefs) state.prefs = {size:10, order:"weak"};
 if (!state.gram) state.gram = {};
+if (!state.gsG) state.gsG = {};
+if (!state.gramG) state.gramG = {};
+// move older shared stats into the grade that was active
+if (state.grade && (state.gs || Object.keys(state.gram).length)) { state.gsG[state.grade] = state.gs || {}; state.gramG[state.grade] = state.gram; state.gs = null; state.gram = {}; }
+const GSt = () => state.gsG[state.grade] || (state.gsG[state.grade] = {});
+const GRm = () => state.gramG[state.grade] || (state.gramG[state.grade] = {});
+const prevGrade = () => { const i = GRADES.indexOf(state.grade); return i>0 ? GRADES[i-1] : null; };
+const myLists = () => state.lists.filter(l => l.grade===state.grade || (state.prefs.prev && l.grade===prevGrade()));
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)) } catch(e) {} };
 
 /* ---------- Claude (photo reading + translation), optional ---------- */
@@ -315,13 +323,13 @@ const dots = b => `<span class="dots" aria-label="רמת שליטה ${b} מתו�
 const norm = s => s.trim().toLowerCase().replace(/\s+/g," ");
 
 /* ---------- views ---------- */
-let view = {name:"home"};
+let view = {name:"grade"};
 const go = v => { view = v; render(); window.scrollTo(0,0); };
 
 function header(active){
   return `<div class="top">
     <div class="logo"><h1><mark>מילה</mark> במילה</h1></div>
-    <button class="grade-chip" data-act="grade" aria-label="שינוי הכיתה">כיתה ${esc(state.grade||"")} <span>שינוי</span></button>
+    <button class="grade-chip" data-act="grade" aria-label="חזרה למסך הראשי">כיתה ${esc(state.grade||"")} <span>מסך ראשי</span></button>
   </div>
   <div class="tabs" role="group" aria-label="ניווט">
     <button data-tab="home" aria-pressed="${active==="home"}">הרשימות שלי</button>
@@ -330,7 +338,8 @@ function header(active){
 }
 
 function homeView(){
-  const lists = state.lists.slice().sort((a,b)=>(daysTo(a.testDate)??99)-(daysTo(b.testDate)??99));
+  const lists = myLists().sort((a,b)=>(daysTo(a.testDate)??99)-(daysTo(b.testDate)??99));
+  const other = state.lists.length - lists.length;
   const cards = lists.map(l=>{
     const r = readiness(l), d = daysTo(l.testDate);
     const soon = d!==null && d>=0 && d<=1;
@@ -344,10 +353,10 @@ function homeView(){
   return `${header("home")}
   <button class="btn" data-act="add">+ רשימה חדשה מהמורה</button>
   ${focusCount()?`<button class="kids-entry focus-entry" data-act="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק נקודות חלשות</b>${focusSummary()}</span></button>`:""}
-  <button class="kids-entry dict-entry" data-act="dict"><span class="em emo" aria-hidden="true">📖</span><span><b>כל אוצר המילים</b>${(DICT||dictAll()).length} מילים מכל הכיתות, עם חיפוש והשמעה</span></button>
+  <button class="kids-entry dict-entry" data-act="dict"><span class="em emo" aria-hidden="true">📖</span><span><b>אוצר המילים של כיתה ${esc(state.grade)}</b>${bankAll(state.grade).length} מילים, עם חיפוש והשמעה</span></button>
   <button class="kids-entry gram-entry" data-act="gram"><span class="em emo" aria-hidden="true">✍️</span><span><b>תרגול דקדוק</b>זמנים, יחיד ורבים, השלמת משפטים ועוד</span></button>
-  <button class="kids-entry" data-kact="start"><span class="em emo" aria-hidden="true">🧸</span><span><b>משחק לקטנים</b>מילים ראשונות בתמונות, מגן עד כיתה ב'</span></button>
-  ${cards || `<div class="card"><p>עוד אין רשימות. צלמו את דף המילים מהמורה או הקלידו אותו, ונתחיל לתרגל.</p></div>`}`;
+  ${cards || `<div class="card"><p>עוד אין רשימות לכיתה ${esc(state.grade)}. צלמו את דף המילים מהמורה, הקלידו אותו, או בחרו נושא מהמאגר.</p></div>`}
+  ${other?`<p class="muted" style="font-size:.9rem">${other===1?"יש עוד רשימה אחת בכיתה אחרת. היא מופיעה":`יש עוד ${other} רשימות בכיתות אחרות. הן מופיעות`} כשבוחרים את הכיתה במסך הראשי.</p>`:""}`;
 }
 
 function listView(){
@@ -389,19 +398,18 @@ function listView(){
 /* ---------- child's grade ---------- */
 const GRADE_HINT = {"ד'":"מילים בסיסיות","ה'":"שגרה ומקומות","ו'":"פעלים ותכונות","ז'":"לימודים ודעות","ח'":"מושגים אקדמיים"};
 function gradeView(){
-  const first = !state.grade;
   const btns = GRADES.map(g=>`<button class="grade-btn" data-setgrade="${g}" aria-pressed="${state.grade===g}"><span>כיתה ${g}</span><small>${GRADE_HINT[g]}</small></button>`).join("");
-  return `${first?`<div class="top"><div class="logo"><h1><mark>מילה</mark> במילה</h1></div></div>`:`<button class="back" data-act="home">→ חזרה</button>`}
+  return `<div class="top"><div class="logo"><h1><mark>מילה</mark> במילה</h1></div></div>
+  <h2>מי מתרגל היום?</h2>
+  <button class="kids-entry" data-kact="start"><span class="em emo" aria-hidden="true">🧸</span><span><b>משחק לקטנים</b>גן עד כיתה ב': מילים ראשונות בתמונות</span></button>
   <div class="card">
-    <h2>באיזו כיתה הילד?</h2>
-    <p class="muted">לפי זה נבחר את רמת המילים במאגר ואת ברירת המחדל לרשימות חדשות. אפשר לשנות בכל רגע.</p>
+    <h3>כיתות ד'–ח'</h3>
+    <p class="muted">בוחרים כיתה, ומשם רואים רק את המילים, הרשימות והדקדוק שמתאימים לגיל.</p>
     <div class="grade-grid">${btns}</div>
-    ${first?"":`<p class="muted" style="font-size:.9rem">רשימות שכבר קיימות לא משתנות, וגם ההתקדמות בהן נשמרת.</p>`}
-  </div>
-  <button class="kids-entry" data-kact="start"><span class="em emo" aria-hidden="true">🧸</span><span><b>הילד בגן או בכיתה א'–ב'?</b>למשחק התמונות לקטנים</span></button>`;
+  </div>`;
 }
 function setGrade(g){
-  state.grade = g;
+  state.grade = g; DQ = {q:"", g:"all", t:"all"}; MIX = {id:null, set:new Set()};
   // swap the untouched example list to the chosen grade
   const ex = state.lists.findIndex(l=>l.example && l.untouched);
   if(ex>-1) state.lists[ex] = exampleList(g);
@@ -430,10 +438,13 @@ function addView(){
       <button class="btn soft" data-act="parse">המשך לאישור המילים</button>
       ${sample?'<p class="muted">מילים בלי תרגום יתורגמו אוטומטית, ותוכלו לתקן.</p>':'<p class="muted">מילים בלי תרגום יחכו שתשלימו אותן ידנית.</p>'}`;
   } else {
-    const g = GRADES.map(k=>`<button data-bank="${k}" aria-pressed="${draft.bankGrade===k}">כיתה ${k}${k===state.grade?" ★":""}</button>`).join("");
+    const allowed = [state.grade].concat(state.prefs.prev && prevGrade() ? [prevGrade()] : []);
+    if(!allowed.includes(draft.bankGrade)) draft.bankGrade = state.grade;
+    const g = allowed.length>1 ? allowed.map(k=>`<button data-bank="${k}" aria-pressed="${draft.bankGrade===k}">כיתה ${k}${k===state.grade?"":" (חזרה)"}</button>`).join("") : "";
     const topics = Object.entries(BANK[draft.bankGrade]).map(([t,ws])=>`<button class="topic" data-topic="${esc(t)}"><span><b>${esc(t)}</b><br><span class="en">${ws.slice(0,4).map(x=>esc(x[0])).join(", ")}...</span></span><span class="pill num">${ws.length} מילים</span></button>`).join("");
-    body = `<div class="seg">${g}</div>
-      <p class="muted">${draft.bankGrade===state.grade?"הכיתה של הילד מסומנת בכוכב.":"זו לא הכיתה של הילד, אבל אפשר לתרגל גם ממנה."} בוחרים נושא, וכל נושא הופך לרשימה של 20 מילים.</p>
+    body = `${g?`<div class="seg">${g}</div>`:""}
+      <div class="row">${prevToggle()}</div>
+      <p class="muted">${draft.bankGrade===state.grade?`מילים לכיתה ${draft.bankGrade}.`:`חזרה על מילים מכיתה ${draft.bankGrade}, למי שצריך חיזוק.`} בוחרים נושא, וכל נושא הופך לרשימה של 20 מילים.</p>
       <div class="topics"><button class="topic" data-topic="__all" style="background:var(--accent-soft)"><span><b>כל המאגר של כיתה ${draft.bankGrade}</b><br><span class="muted" style="font-size:.85rem">כל הנושאים ברשימה אחת, מחולקת לקבוצות של 10</span></span><span class="pill num">${bankAll(draft.bankGrade).length} מילים</span></button>${topics}</div>`;
   }
   const editor = draft.words.length ? reviewBlock() : "";
@@ -538,6 +549,10 @@ function activePool(l){
   if(mixActive(l) && MIX.set.size>=2) return gs.filter(g=>MIX.set.has(g.i)).flatMap(g=>g.words);
   if(typeof l.sel==="number" && gs[l.sel]) return gs[l.sel].words;
   return l.words;
+}
+function prevToggle(){
+  const pg = prevGrade(); if(!pg) return "";
+  return `<button class="btn small ${state.prefs.prev?"":"soft"}" data-act="prevtoggle" aria-pressed="${!!state.prefs.prev}">${state.prefs.prev?`✓ כולל מילים מכיתה ${pg}`:`מתקשה? להוסיף גם מילים מכיתה ${pg}`}</button>`;
 }
 function sizeBar(withAll, label){
   const sizes=[5,10,15,20].concat(withAll?["all"]:[]);
@@ -673,13 +688,13 @@ function resultView(l){
 }
 
 /* ---------- parent report ---------- */
-function focusCount(){ return state.lists.reduce((a,l)=>a+trouble(l).length,0) + openMisses().length + weakSkills().length; }
+function focusCount(){ return myLists().reduce((a,l)=>a+trouble(l).length,0) + openMisses().length + weakSkills().length; }
 function focusSummary(){
-  const w = state.lists.reduce((a,l)=>a+trouble(l).length,0), g = openMisses().length;
+  const w = myLists().reduce((a,l)=>a+trouble(l).length,0), g = openMisses().length;
   return [w?`${w} מילים`:"", g?`${g} שאלות דקדוק`:""].filter(Boolean).join(" · ") || "נושאים בדקדוק לחיזוק";
 }
 function focusView(){
-  const lists = state.lists.filter(l=>trouble(l).length);
+  const lists = myLists().filter(l=>trouble(l).length);
   const ws = weakSkills(), om = openMisses();
   return `<button class="back" data-act="home">→ חזרה</button>
   <h2>חיזוק נקודות חלשות</h2>
@@ -690,19 +705,18 @@ function focusView(){
 }
 function parentView(){
   const ws = weakSkills(), om = openMisses();
-  const listTrouble = state.lists.map(l=>({l, t:trouble(l)})).filter(x=>x.t.length);
+  const listTrouble = myLists().map(l=>({l, t:trouble(l)})).filter(x=>x.t.length);
   // summary of what needs attention
   const alerts = [];
   ws.slice(0,4).forEach(x=>alerts.push(`<b>${x.name}</b> · ${x.acc}% הצלחה ב-${x.n} שאלות`));
   listTrouble.forEach(({l,t})=>alerts.push(`<b>${t.length} מילים</b> ב"${esc(l.name)}" שהוא טועה בהן`));
   const kidsHard = Object.entries((state.kids&&state.kids.seen)||{}).filter(([k,v])=>v.w>0 && v.w>=v.r).sort((a,b)=>(b[1].w-b[1].r)-(a[1].w-a[1].r));
-  if(kidsHard.length) alerts.push(`<b>${kidsHard.length} מילים</b> במשחק לקטנים שקשה לזהות`);
   const summary = alerts.length
     ? `<div class="card alert"><h3>דורש תשומת לב</h3><ul>${alerts.slice(0,6).map(a=>`<li>${a}</li>`).join("")}</ul>
        <p class="muted" style="font-size:.9rem">בכפתור "חיזוק נקודות חלשות" במסך הראשי הילד מתרגל בדיוק את המקומות האלה.</p></div>`
     : `<div class="card alert ok"><b>אין כרגע נקודות בעייתיות.</b><p class="muted">אחרי שהילד יתרגל, מילים ונושאים שהוא מתקשה בהם יסומנו כאן.</p></div>`;
 
-  const items = state.lists.map(l=>{
+  const items = myLists().map(l=>{
     const r=readiness(l), t=trouble(l), mastered=l.words.filter(w=>w.box>=4).length, untried=l.words.filter(w=>!w.right&&!w.wrong).length;
     const state_ = r>=80?["good","מוכן"]:r>=50?["","בדרך"]:["bad","צריך תרגול"];
     const gsx = groupsOf(l).filter(g=>g.words.some(w=>w.right||w.wrong)).map(g=>({...g, r:readinessW(g.words)})).sort((a,b)=>a.r-b.r);
@@ -719,8 +733,8 @@ function parentView(){
     </div>`;
   }).join("");
 
-  const gramCard = GMODS.filter(m=>state.gs&&state.gs[m.id]).map(m=>{
-    const st = state.gs[m.id], sks = Object.entries(st.skills).map(([k,sk])=>({k, name:SKILL_HE[m.id][k]||k, a:acc(sk), n:sk.r+sk.w})).sort((a,b)=>a.a-b.a);
+  const gramCard = GMODS.filter(m=>GSt()[m.id]).map(m=>{
+    const st = GSt()[m.id], sks = Object.entries(st.skills).map(([k,sk])=>({k, name:SKILL_HE[m.id][k]||k, a:acc(sk), n:sk.r+sk.w})).sort((a,b)=>a.a-b.a);
     const tot = Object.values(st.skills).reduce((a,x)=>({r:a.r+x.r,w:a.w+x.w}),{r:0,w:0});
     const misses = Object.values(st.miss).sort((a,b)=>b.ts-a.ts).slice(0,3);
     return `<div style="padding:8px 0;border-top:1px solid var(--line)">
@@ -733,12 +747,11 @@ function parentView(){
   const kidsCard = kidsHard.length ? `<div class="card"><h3>משחק לקטנים: מילים שקשה לזהות</h3><div class="row" style="gap:8px">${kidsHard.slice(0,12).map(([k,v])=>{const [en,em]=k.split("|"); return `<span class="pill bad"><span class="emo">${em}</span> <span class="en">${esc(en)}</span> · ${v.w}</span>`}).join("")}</div></div>` : "";
 
   return `${header("parent")}
-  <div class="card row spread"><span>כיתת הילד: <b>${esc(state.grade||"")}</b></span><button class="btn small soft" data-act="grade">שינוי כיתה</button></div>
+  <div class="card row spread"><span>כיתת הילד: <b>${esc(state.grade||"")}</b></span><button class="btn small soft" data-act="grade">החלפת כיתה</button></div>
   ${summary}
   <p class="muted">מוכנות עולה כשהילד עונה נכון על אותה מילה כמה פעמים, ויורדת כשהוא טועה. מילה נחשבת בעייתית כשהוא טעה בה והיא עוד לא יושבת.</p>
   ${items||'<div class="card">אין עדיין רשימות.</div>'}
   ${gramCard?`<div class="card"><h3>דקדוק</h3>${gramCard}</div>`:""}
-  ${kidsCard}
   <button class="btn ghost small" data-act="reset-ask">איפוס כל הנתונים</button>
   <div id="resetbox" hidden class="card"><p>למחוק את כל הרשימות וההתקדמות במכשיר הזה?</p><div class="row"><button class="btn small" data-act="reset">כן, לאפס</button><button class="btn small soft" data-act="reset-cancel">ביטול</button></div></div>`;
 }
@@ -753,10 +766,11 @@ function dictAll(){
 }
 let DICT = null;
 function bestBox(en){ let b=-1; for(const l of state.lists) for(const w of l.words) if(w.en===en && w.box>b) b=w.box; return b; }
+const dictGrades = () => [state.grade].concat(state.prefs.prev && prevGrade() ? [prevGrade()] : []);
 function dictFiltered(){
   DICT = DICT || dictAll();
-  const q = DQ.q.trim().toLowerCase();
-  return DICT.filter(w=>(DQ.g==="all"||w.g===DQ.g) && (DQ.t==="all"||w.t===DQ.t) && (!q || w.en.toLowerCase().includes(q) || w.he.includes(q)));
+  const q = DQ.q.trim().toLowerCase(), gs = dictGrades();
+  return DICT.filter(w=>gs.includes(w.g) && (DQ.g==="all"||w.g===DQ.g) && (DQ.t==="all"||w.t===DQ.t) && (!q || w.en.toLowerCase().includes(q) || w.he.includes(q)));
 }
 function dictResults(){
   const r = dictFiltered(), shown = r.slice(0,200);
@@ -771,14 +785,17 @@ function dictResults(){
   ${r.length?`<button class="btn soft" data-act="dictpractice">יצירת רשימה לתרגול מ-${r.length} המילים האלה</button>`:`<p>לא נמצאו מילים. נסו חיפוש אחר.</p>`}`;
 }
 function dictView(){
-  const gs = ["all",...GRADES,"kids"].map(g=>`<button data-dg="${g}" aria-pressed="${DQ.g===g}">${g==="all"?"הכול":g==="kids"?"גן–ב'":"כיתה "+g}</button>`).join("");
-  const topics = DQ.g==="all" ? [] : DQ.g==="kids" ? KIDS.map(c=>c.name) : Object.keys(BANK[DQ.g]);
+  const gs = dictGrades();
+  if(DQ.g!=="all" && !gs.includes(DQ.g)){ DQ.g="all"; DQ.t="all"; }
+  const gchips = gs.length>1 ? `<div class="setrow"><span class="muted">כיתה</span><div class="seg small">${["all",...gs].map(g=>`<button data-dg="${g}" aria-pressed="${DQ.g===g}">${g==="all"?"שתיהן":g===state.grade?"כיתה "+g:"כיתה "+g+" (חזרה)"}</button>`).join("")}</div></div>` : "";
+  const topics = (DQ.g==="all" ? gs : [DQ.g]).flatMap(g=>Object.keys(BANK[g]));
   return `<button class="back" data-act="home">→ חזרה</button>
-  <h2>כל אוצר המילים</h2>
+  <h2>אוצר המילים של כיתה ${esc(state.grade)}</h2>
   <div class="card">
     <div class="field"><label for="dq">חיפוש באנגלית או בעברית</label><input type="text" id="dq" value="${esc(DQ.q)}" placeholder="למשל: journey או מסע" autocomplete="off"></div>
-    <div class="setrow"><span class="muted">כיתה</span><div class="seg small">${gs}</div></div>
-    ${topics.length?`<div class="setrow"><span class="muted">נושא</span><div class="seg small"><button data-dt="all" aria-pressed="${DQ.t==="all"}">כל הנושאים</button>${topics.map(t=>`<button data-dt="${esc(t)}" aria-pressed="${DQ.t===t}">${esc(t)}</button>`).join("")}</div></div>`:""}
+    <div class="row">${prevToggle()}</div>
+    ${gchips}
+    <div class="setrow"><span class="muted">נושא</span><div class="seg small"><button data-dt="all" aria-pressed="${DQ.t==="all"}">כל הנושאים</button>${[...new Set(topics)].map(t=>`<button data-dt="${esc(t)}" aria-pressed="${DQ.t===t}">${esc(t)}</button>`).join("")}</div></div>
   </div>
   <div id="dres">${dictResults()}</div>`;
 }
@@ -861,7 +878,7 @@ const SKILL_HE = {
   articles:{v:"an לפני תנועה",c:"a לפני עיצור",h:"an לפני h שקטה (hour)",u:"a לפני צליל 'יו'"}
 };
 /* mistake tracking */
-function gs(mod){ if(!state.gs) state.gs={}; if(!state.gs[mod]) state.gs[mod]={skills:{}, miss:{}}; return state.gs[mod]; }
+function gs(mod){ const S=GSt(); if(!S[mod]) S[mod]={skills:{}, miss:{}}; return S[mod]; }
 function recordGram(q, ok, given){
   const st = gs(q.mod), sk = st.skills[q.skill] || (st.skills[q.skill]={r:0,w:0});
   ok ? sk.r++ : sk.w++;
@@ -872,12 +889,12 @@ function recordGram(q, ok, given){
 const acc = sk => Math.round(sk.r/(sk.r+sk.w)*100);
 function weakSkills(){
   const out=[];
-  for(const m of GMODS){ const st=state.gs&&state.gs[m.id]; if(!st) continue;
+  for(const m of GMODS){ const st=GSt()[m.id]; if(!st) continue;
     for(const [k,sk] of Object.entries(st.skills)){ const n=sk.r+sk.w; if(n>=3 && sk.r/n<0.75) out.push({mod:m.id, skill:k, name:SKILL_HE[m.id][k]||k, acc:acc(sk), n}); } }
   return out.sort((a,b)=>a.acc-b.acc);
 }
 function openMisses(){
-  const out=[]; for(const m of GMODS){ const st=state.gs&&state.gs[m.id]; if(!st) continue;
+  const out=[]; for(const m of GMODS){ const st=GSt()[m.id]; if(!st) continue;
     for(const [k,x] of Object.entries(st.miss)) out.push({mod:m.id, key:k, ...x}); }
   return out.sort((a,b)=>b.w-a.w || b.ts-a.ts);
 }
@@ -899,10 +916,10 @@ function startGram(id){
 function gramHubView(){
   const ws = weakSkills(), om = openMisses();
   const missBy = id => om.filter(x=>x.mod===id).length;
-  const cards = GMODS.map(m=>{ const st = state.gram[m.id], mb = missBy(m.id);
+  const cards = GMODS.map(m=>{ const st = GRm()[m.id], mb = missBy(m.id);
     return `<button class="topic g-mod" data-gmod="${m.id}"><span class="emo g-ic" aria-hidden="true">${m.icon}</span><span style="flex:1;min-width:0"><b>${m.name}</b><br><span class="en muted" style="font-size:.85rem">${esc(m.ex)}</span></span>${mb?`<span class="pill bad num">${mb} לחיזוק</span>`:""}${st?`<span class="pill ${st.best>=80?"good":""} num">${st.best}%</span>`:""}</button>`; }).join("");
   return `<button class="back" data-act="home">→ חזרה</button>
-  <div class="row spread"><h2>תרגול דקדוק</h2><button class="grade-chip" data-act="grade">כיתה ${esc(state.grade||"")} <span>שינוי</span></button></div>
+  <div class="row spread"><h2>תרגול דקדוק</h2><button class="grade-chip" data-act="grade">כיתה ${esc(state.grade||"")} <span>מסך ראשי</span></button></div>
   <p class="muted">רמת הקושי מותאמת לכיתה. מכיתה ז' חלק מהשאלות דורשות כתיבה של התשובה.</p>
   <div class="card">${sizeBar(false,"שאלות בסשן")}</div>
   ${(ws.length||om.length)?`<button class="kids-entry focus-entry" data-gmod="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק נקודות חלשות</b>${om.length} שאלות שטעית בהן${ws.length?` · ${ws.length} נושאים שצריך לחזק`:""}</span></button>`:""}
@@ -943,8 +960,8 @@ function gramAnswer(ok, given){
   const q = G.qs[G.i]; G.done = true; G.ok = ok; if(ok) G.score++;
   recordGram(q, ok, given); save();
   if(G.i===G.qs.length-1 && G.id!=="focus"){
-    const pct = Math.round((G.score)/G.qs.length*100), st = state.gram[G.id] || {best:0, plays:0};
-    state.gram[G.id] = {best:Math.max(st.best,pct), last:pct, plays:st.plays+1}; save();
+    const pct = Math.round((G.score)/G.qs.length*100), st = GRm()[G.id] || {best:0, plays:0};
+    GRm()[G.id] = {best:Math.max(st.best,pct), last:pct, plays:st.plays+1}; save();
   }
   render(); say(q.speak);
   const n = $("#gnext"); if(n) n.focus();
@@ -957,12 +974,14 @@ function kidsStartView(){
   const ks = kidsStore();
   const ages = Object.entries(KID_AGES).map(([k,a])=>`<button class="k-age" data-kage="${k}" aria-pressed="${ks.age===k}"><span class="emo" aria-hidden="true">${a.icon}</span>${a.label}<small>${a.n} תמונות</small></button>`).join("");
   const cats = KIDS.map(c=>`<button class="k-cat" data-kcat="${c.id}"><span class="emo" aria-hidden="true">${c.icon}</span>${c.name}</button>`).join("");
-  return `<div class="k-top"><button class="k-home" data-act="home" aria-label="חזרה למסך הראשי"><span class="emo">🏠</span></button><h2>משחק לקטנים</h2><span style="width:52px"></span></div>
+  return `<div class="k-top"><button class="k-home" data-act="grade" aria-label="חזרה למסך הראשי"><span class="emo">🏠</span></button><h2>משחק לקטנים</h2><span style="width:52px"></span></div>
   <div class="card"><h3>באיזה גיל הילד?</h3><div class="k-ages">${ages}</div></div>
   ${ks.age?`<h3>במה משחקים?</h3>
   <div class="k-cats"><button class="k-cat all" data-kcat="all"><span class="emo" aria-hidden="true">🎲</span>הכול מעורבב</button>${cats}</div>
   <p class="muted" style="font-size:.9rem">הילד שומע מילה באנגלית ובוחר את התמונה המתאימה. על טעות האפליקציה אומרת בעברית מה יש בתמונה, ואיך אומרים אותה באנגלית.</p>`
-  :`<p class="muted">בחרו גיל כדי להתחיל.</p>`}`;
+  :`<p class="muted">בחרו גיל כדי להתחיל.</p>`}
+  ${(()=>{ const hard = Object.entries(ks.seen).filter(([k,v])=>v.w>0 && v.w>=v.r).sort((a,b)=>(b[1].w-b[1].r)-(a[1].w-a[1].r));
+    return hard.length?`<div class="card"><h3>להורים: מילים שקשה לזהות</h3><div class="row" style="gap:8px">${hard.slice(0,12).map(([k,v])=>{const [en,em]=k.split("|"); return `<span class="pill bad"><span class="emo">${em}</span> <span class="en">${esc(en)}</span> · ${v.w}</span>`}).join("")}</div></div>`:""; })()}`;
 }
 function kidsPool(catId){
   return catId==="all" ? KIDS.flatMap(c=>c.words.map(w=>({en:w[0],he:w[1],em:w[2],cat:c.id}))) : KIDS.find(c=>c.id===catId).words.map(w=>({en:w[0],he:w[1],em:w[2],cat:catId}));
@@ -1082,14 +1101,15 @@ document.addEventListener("click", e=>{
   if(d.gmod) return startGram(d.gmod);
   if(d.act==="focus") return go({name:"focus"});
   if(d.act==="dict") return go({name:"dict"});
+  if(d.act==="prevtoggle"){ state.prefs.prev = !state.prefs.prev; save(); return render(); }
   if(d.dg){ DQ.g=d.dg; DQ.t="all"; return render(); }
   if(d.dt){ DQ.t=d.dt; return render(); }
   if(d.sayw) return say(d.sayw);
   if(d.act==="dictpractice"){
     const r = dictFiltered(); newDraft(); draft.src="bank";
     draft.words = r.map(w=>({en:w.en, he:w.he, flag:false, note:""}));
-    const label = DQ.q.trim() ? `חיפוש: ${DQ.q.trim()}` : DQ.t!=="all" ? DQ.t : DQ.g==="all" ? "כל אוצר המילים" : DQ.g==="kids" ? "מילים לקטנים" : `כל המאגר – כיתה ${DQ.g}`;
-    draft.name = label; if(GRADES.includes(DQ.g)) draft.grade = DQ.g; draft.testDate = "";
+    const label = DQ.q.trim() ? `חיפוש: ${DQ.q.trim()}` : DQ.t!=="all" ? DQ.t : `אוצר המילים – כיתה ${state.grade}`;
+    draft.name = label; draft.grade = state.grade; draft.testDate = "";
     return go({name:"add"});
   }
   if(d.focuslist){ view = {name:"list", id:d.focuslist}; return startPractice("focus"); }
@@ -1129,7 +1149,7 @@ document.addEventListener("click", e=>{
     case "delete": state.lists=state.lists.filter(x=>x.id!==view.id); save(); return go({name:"home"});
     case "reset-ask": $("#resetbox").hidden=false; return;
     case "reset-cancel": $("#resetbox").hidden=true; return;
-    case "reset": state={grade:null, lists:[], prefs:{size:10,order:"weak"}, gram:{}, gs:{}}; save(); return go({name:"home"});
+    case "reset": state={grade:null, lists:[], prefs:{size:10,order:"weak"}, gram:{}, gsG:{}, gramG:{}}; save(); return go({name:"home"});
     case "say": return say(P.items[P.i].w.en);
     case "slow": return say(P.items[P.i].w.en, true);
     case "next": P.i++; P.feedback=""; P.fbClass=""; render(); setTimeout(()=>{autoSpeak(); focusSpell();},150); return;
