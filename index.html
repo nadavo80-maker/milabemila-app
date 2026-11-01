@@ -101,6 +101,7 @@ textarea{min-height:140px;resize:vertical}
 .sug-btn{background:var(--good-soft);color:var(--good);font-weight:800;padding:2px 8px;border-radius:8px}
 .icon-btn{width:40px;height:40px;background:transparent;color:var(--muted);font-size:1.2rem}
 .note{background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:.95rem}
+.note.ok{background:var(--good-soft);color:var(--good);font-weight:600}
 .note.warn{background:var(--marker);color:var(--marker-ink)}
 /* Practice */
 .q{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:10px 0}
@@ -243,7 +244,7 @@ function exampleList(g){
   return {id:uid(), name:`דוגמה: ${topic}`, grade:g, testDate:dayISO(3), example:true, untouched:true, words:w};
 }
 function sampleState(){
-  return {grade:null, lists:[exampleList("ו'")]};
+  return {grade:null, lists:[]};
 }
 let state;
 try { state = JSON.parse(localStorage.getItem(KEY)) } catch(e) { state = null }
@@ -258,7 +259,36 @@ if (state.grade && (state.gs || Object.keys(state.gram).length)) { state.gsG[sta
 const GSt = () => state.gsG[state.grade] || (state.gsG[state.grade] = {});
 const GRm = () => state.gramG[state.grade] || (state.gramG[state.grade] = {});
 const prevGrade = () => { const i = GRADES.indexOf(state.grade); return i>0 ? GRADES[i-1] : null; };
-const myLists = () => state.lists.filter(l => l.grade===state.grade || (state.prefs.prev && l.grade===prevGrade()));
+const masterOf = g => state.lists.find(l=>l.master && l.grade===g);
+const ADDED = "מילים שהוספתי";
+// one word pool per grade: the grade's bank + every word the family added. Older separate lists are folded in, keeping progress.
+function ensureMaster(g){
+  if(!g || !BANK[g]) return null;
+  let m = masterOf(g);
+  if(!m){
+    m = {id:uid(), master:true, name:`המילים של כיתה ${g}`, grade:g, testDate:"", sel:"all", words:[]};
+    for(const [t,ws] of Object.entries(BANK[g])) for(const [en,he] of ws) m.words.push({...mkWord(en,he), g:t});
+    state.lists.push(m);
+  }
+  const others = state.lists.filter(l=>!l.master && l.grade===g);
+  if(others.length){
+    const byEn = new Map(m.words.map(w=>[w.en.trim().toLowerCase(), w])), added=[];
+    for(const l of others){
+      const fake = l.example && l.untouched;
+      for(const w of l.words){
+        const k = w.en.trim().toLowerCase(), ex = byEn.get(k);
+        if(ex){ if(!fake && ex!==w){ ex.box=Math.max(ex.box,w.box||0); ex.right+=w.right||0; ex.wrong+=w.wrong||0; if(w.miss) ex.miss=w.miss; } }
+        else if(!l.example){ const nw={...w, g:l.starter?ADDED:l.name}; added.push(nw); byEn.set(k,nw); }
+      }
+    }
+    m.words = added.concat(m.words);
+    state.lists = state.lists.filter(l=>l.master || l.grade!==g);
+  }
+  return m;
+}
+GRADES.forEach(g=>{ if(state.lists.some(l=>!l.master && l.grade===g)) ensureMaster(g); });
+state.lists = state.lists.filter(l=>l.master || GRADES.includes(l.grade));
+const myLists = () => [masterOf(state.grade)].filter(Boolean);
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)) } catch(e) {} };
 
 /* ---------- Claude (photo reading + translation), optional ---------- */
@@ -348,6 +378,7 @@ function goBack(){
   let v = null;
   while(HIST.length){ const c = HIST.pop(); if(!SKIP.includes(c.name) && !(c.name===view.name && c.id===view.id)){ v = c; break; } }
   if(v && v.name==="list" && !state.lists.find(l=>l.id===v.id)) v = {name:"home"};
+  if(v && v.name==="add") v = null;
   view = v || {name:"grade"};
   try{ speechSynthesis.cancel(); }catch(_){}
   render(); window.scrollTo(0,0);
@@ -397,56 +428,55 @@ function gradeMore(){
   <button class="kids-entry dict-entry" data-act="dict"><span class="em emo" aria-hidden="true">📖</span><span><b>אוצר המילים של כיתה ${esc(state.grade)}</b>${bankAll(state.grade).length} מילים, עם חיפוש והשמעה</span></button>`;
 }
 function parentLink(){
-  const other = state.lists.length - myLists().length;
-  return `<button class="btn ghost" data-tab="parent">📊 דוח להורה</button>
-  ${other?`<p class="muted" style="font-size:.9rem">${other===1?"יש עוד רשימה אחת בכיתה אחרת. היא מופיעה":`יש עוד ${other} רשימות בכיתות אחרות. הן מופיעות`} כשבוחרים את הכיתה במסך הראשי.</p>`:""}`;
+  return `<button class="btn ghost" data-tab="parent">📊 דוח להורה</button>`;
 }
-function pickGradeList(){
-  const mine = myLists(), last = (state.lastList||{})[state.grade];
-  return mine.find(l=>l.id===last) || mine.slice().sort((a,b)=>{ const k=d=>d===null?999:(d<0?500-d:d); return k(daysTo(a.testDate))-k(daysTo(b.testDate)); })[0];
-}
-function goGradePage(){ const l = pickGradeList(); go(l ? {name:"list", id:l.id} : {name:"home"}); }
+function pickGradeList(){ const m = ensureMaster(state.grade); save(); return m; }
+function goGradePage(){ const l = pickGradeList(); go(l ? {name:"list", id:l.id} : {name:"grade"}); }
 function listView(){
   const l = state.lists.find(x=>x.id===view.id); if(!l) return go({name:"home"});
   if(!state.lastList) state.lastList = {};
   if(state.lastList[state.grade]!==l.id){ state.lastList[state.grade]=l.id; save(); }
   const r = readiness(l), d = daysTo(l.testDate);
-  const rec = d!==null && d>=0 && d<=1 ? "test" : (r<40 ? "learn" : r<75 ? "reverse" : "spell");
+  const pool = activePool(l), pr = readinessW(pool);
+  const rec = d!==null && d>=0 && d<=1 ? "test" : (pr<40 ? "learn" : pr<75 ? "reverse" : "spell");
   const modes = [
     ["learn","שלב 1","הכרה","שומעים מילה ובוחרים תרגום"],
     ["reverse","שלב 2","תרגום הפוך","רואים בעברית ובוחרים באנגלית"],
     ["spell","שלב 3","איות בהכתבה","שומעים וכותבים, אות אחר אות"],
     ["test","שלב 4","מבחן כמו בכיתה","מעברית לאנגלית, בלי רמזים"]
   ].map(([m,s,t,dsc])=>`<button class="mode ${m===rec?"rec":""}" data-mode="${m}"><span class="step">${s}${m===rec?" · מומלץ עכשיו":""}</span><b>${t}</b><span class="muted">${dsc}</span></button>`).join("");
-  const pool = activePool(l);
   const rows = pool.slice().sort((a,b)=>a.box-b.box).map(w=>`<div class="word-row">
     <span class="en">${esc(w.en)}</span><span>${esc(w.he)}</span>${dots(w.box)}</div>`).join("");
-  const mine = myLists();
-  return `<div class="setrow"><span class="muted">הרשימות של כיתה ${esc(state.grade)}</span><div class="seg small">${mine.map(x=>`<button data-open="${x.id}" aria-pressed="${x.id===l.id}">${esc(x.name)} <span class="muted num">${readiness(x)}%</span></button>`).join("")}<button data-act="add">+ רשימה חדשה</button></div></div>
+  const nAdded = l.words.filter(w=>!(BANK[l.grade]||{})[w.g]).length;
+  const pend = state.pendingDraft && state.pendingDraft.grade===state.grade && state.pendingDraft.words.length;
+  const flash = FLASH; FLASH = "";
+  return `${flash?`<div class="note ok">${flash}</div>`:""}
+  ${pend?`<button class="kids-entry" data-act="resume"><span class="em emo" aria-hidden="true">📝</span><span><b>${pend} מילים מחכות לאישור</b>המילים שצילמת או הקלדת נשמרו. לחצו כדי לסיים ולהוסיף אותן לתרגול.</span></button>`:""}
   <div class="card">
-    <div class="row spread"><h2>${esc(l.name)}</h2>${l.example?'<span class="pill marker">דוגמה</span>':""}</div>
-    <div class="row"><span class="pill">כיתה ${esc(l.grade||"")}</span><span class="pill">${dueLabel(l.testDate)||"בלי תאריך מבחן"}</span></div>
-    <div class="row spread"><span>מוכנות למבחן</span><span class="big num">${r}%</span></div>
+    <div class="row spread"><h2>${esc(l.name)}</h2><span class="pill num">${allWords(l).length} מילים</span></div>
+    <p class="muted" style="margin:0">${nAdded?`${nW(nAdded)} שהוספתם + `:""}מילות הכיתה מהמאגר. התרגול בוחר מכל המילים, קודם את החלשות.</p>
+    <div class="row spread"><span>מוכנות</span><span class="big num">${r}%</span></div>
     <div class="meter"><i style="width:${r}%"></i></div>
     ${d!==null&&d>=0&&d<=1?`<div class="note warn">המבחן קרוב. מצב "מבחן" מתמקד במילים שעדיין לא יושבות.</div>`:""}
   </div>
-  <h3>במה מתרגלים?</h3>
+  <button class="btn" data-act="add">📷 + הוספת מילים מהמורה</button>
+  <h3>במה מתרגלים?${pool.length<allWords(l).length?` <span class="muted" style="font-size:.9rem">(${esc((selGroup(l)||{label:"ערבוב"}).label)} · ${pool.length} מילים)</span>`:""}</h3>
   ${trouble(l).length?`<button class="kids-entry focus-entry" data-mode="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק טעויות · ${trouble(l).length} מילים</b>מילים שטעית בהן. כל מילה מתורגלת ברמה שמתאימה לה, ויוצאת מהרשימה כשהיא יושבת.</span></button>`:""}
   <div class="modes">${modes}</div>
   ${Object.keys(uniqIssues(l.words)).length?`<div class="note warn">ברשימה יש פירוש בעברית ששייך לשתי מילים. כדאי לתקן ב"עריכה" כדי שבתרגול לא יהיו שתי תשובות נכונות.</div>`:""}
   <details class="card settings" id="setbox" ${OPEN_SET?"open":""}>
-    <summary><b>הגדרות התרגול</b> <span class="muted">${(()=>{ const gs=groupsOf(l); const grp = mixActive(l)?"ערבוב קבוצות": typeof l.sel==="number"&&gs[l.sel]?gs[l.sel].label:"כל המילים"; const sz = state.prefs.size==="all"?"כל המילים":state.prefs.size+" מילים"; const od={weak:"קודם החלשות",random:"אקראי",seq:"לפי הסדר"}[state.prefs.order]; return `${esc(grp)} · ${sz} · ${od}`; })()}</span></summary>
+    <summary><b>הגדרות התרגול</b> <span class="muted">${(()=>{ const sg=selGroup(l); const grp = mixActive(l)?"ערבוב קבוצות": sg?sg.label:"כל המילים"; const sz = state.prefs.size==="all"?"כל המילים":state.prefs.size+" מילים"; const od={weak:"קודם החלשות",random:"אקראי",seq:"לפי הסדר"}[state.prefs.order]; return `${esc(grp)} · ${sz} · ${od}`; })()}</span></summary>
     <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
     ${groupBar(l)}
+    ${l.master&&prevGrade()?`<div class="row">${prevToggle()}</div>`:""}
     ${sizeBar(true,"מילים בסשן")}
     ${orderBar()}
     </div>
   </details>
   ${gradeMore()}
-  <div class="card"><div class="row spread"><h3>${pool.length<l.words.length?`המילים שנבחרו (${pool.length})`:`המילים ברשימה (${l.words.length})`}</h3><button class="btn small soft" data-act="edit">עריכה</button></div>
-  <div class="words">${rows}</div></div>
-  <button class="btn ghost small" data-act="delete-ask">מחיקת הרשימה</button>
-  <div id="delbox" hidden class="card"><p>למחוק את "${esc(l.name)}" עם כל ההתקדמות?</p><div class="row"><button class="btn small" data-act="delete">כן, למחוק</button><button class="btn small soft" data-act="delete-cancel">ביטול</button></div></div>
+  <details class="card"><summary><b>${pool.length<allWords(l).length?`המילים שנבחרו (${pool.length})`:`כל המילים (${pool.length})`}</b> <span class="muted">לצפייה ועריכה</span></summary>
+  <div class="row" style="margin:8px 0"><button class="btn small soft" data-act="edit">עריכת המילים שלי</button></div>
+  <div class="words">${rows}</div></details>
   ${parentLink()}`;
 }
 
@@ -466,16 +496,7 @@ function gradeView(){
 function setGrade(g){
   HIST = [];
   state.grade = g; DQ = {q:"", g:"all", t:"all"}; MIX = {id:null, set:new Set()};
-  // swap the untouched example list to the chosen grade
-  const ex = state.lists.findIndex(l=>l.example && l.untouched);
-  if(ex>-1) state.lists[ex] = exampleList(g);
-  save();
-  // go straight to practice: the list used last in this grade, else the nearest test
-  if(!myLists().length){
-    const t = Object.keys(BANK[g])[0], ws = BANK[g][t];
-    state.lists.push({id:uid(), name:t, grade:g, testDate:"", starter:true, words:ws.map(([en,he])=>mkWord(en,he)), groupNames:Array.from({length:Math.ceil(ws.length/GSIZE)},(_,i)=>`${t} ${i+1}`)});
-    save();
-  }
+  ensureMaster(g); save();
   goGradePage();
 }
 
@@ -646,14 +667,18 @@ async function ocrPhoto(file){
 const normHe = h => String(h||"").replace(/\s+/g," ").trim();
 const heList = h => String(h||"").split(/\s*[\/,;]\s*|\s+או\s+/).map(normHe).filter(Boolean);
 const joinHe = list => [...new Set(list.map(normHe).filter(Boolean))].join(" / ");
-function uniqIssues(words){
-  // a word may have several meanings, but no meaning may belong to two different words
+function uniqIssues(words, existing=[]){
+  // a word may have several meanings, but no meaning may belong to two different words (also not to a word already saved)
   const out={}, byHe={}, byEn={};
+  const exEn = new Set(existing.map(w=>w.en.trim().toLowerCase()));
+  const all = words.concat(existing), N = words.length;
   words.forEach((w,i)=>{ if(!w.en) return;
-    heList(w.he).forEach(h=>{ (byHe[h]=byHe[h]||new Set()).add(i); });
     const e=w.en.trim().toLowerCase(); (byEn[e]=byEn[e]||[]).push(i);
+    if(exEn.has(e)) return;   // already saved: it keeps its saved meanings
+    heList(w.he).forEach(h=>{ (byHe[h]=byHe[h]||new Set()).add(i); });
   });
-  Object.entries(byHe).forEach(([h,set])=>{ const ix=[...set]; if(ix.length>1) ix.forEach(i=>{ const others=ix.filter(j=>j!==i).map(j=>words[j].en).join(", "); out[i]=out[i]||`הפירוש "${h}" שייך גם ל-${others}. מחקו אותו מאחת המילים או הוסיפו הבהרה בסוגריים.`; }); });
+  existing.forEach((w,j)=>heList(w.he).forEach(h=>{ if(byHe[h]) byHe[h].add(N+j); }));
+  Object.entries(byHe).forEach(([h,set])=>{ const ix=[...set]; if(ix.length>1) ix.filter(i=>i<N).forEach(i=>{ const others=ix.filter(j=>j!==i).map(j=>all[j].en).join(", "); out[i]=out[i]||`הפירוש "${h}" שייך גם ל-${others}. מחקו אותו מאחת המילים או הוסיפו הבהרה בסוגריים.`; }); });
   Object.entries(byEn).forEach(([e,ix])=>{ if(ix.length>1) ix.slice(1).forEach(i=>{ out[i]=`המילה ${words[i].en} מופיעה פעמיים ברשימה.`; }); });
   return out;
 }
@@ -661,12 +686,21 @@ const UNIQ_ERR = "כל פירוש בעברית יכול להיות שייך רק
 
 /* ---------- add list ---------- */
 let draft = null;
-function newDraft(){ draft = {src:"type", name:"", grade:state.grade||"ו'", testDate:dayISO(4), words:[], typed:"", busy:false, err:"", bankGrade:state.grade||"ו'"}; }
+function newDraft(){ draft = {src:"photo", name:"", grade:state.grade||"ו'", testDate:"", words:[], typed:"", busy:false, err:"", bankGrade:state.grade||"ו'"}; }
+const enKey = w => String(w.en||"").trim().toLowerCase();
+function masterEns(){ const m = masterOf(state.grade); return new Set(m ? m.words.map(enKey) : []); }
+// keep the words being added safe until they are saved, even if the screen is left
+function keepDraft(){
+  if(!draft || draft.editId) return;
+  const ws = draft.words.filter(w=>w.en);
+  state.pendingDraft = ws.length ? {grade:draft.grade, name:draft.name, src:draft.src, words:ws.map(w=>({en:w.en, he:w.he||"", flag:!!w.flag, note:w.note||"", chk:w.chk==="busy"?"":(w.chk||""), sug:w.sug||""}))} : null;
+  save();
+}
 
 function addView(){
   if(!draft) newDraft();
   const photoOK = sample && canImages;
-  const tabs = [["photo","צילום"],["type","הקלדה"],["bank","מאגר מוכן"]].map(([k,t])=>`<button data-src="${k}" aria-pressed="${draft.src===k}">${t}</button>`).join("");
+  const tabs = [["photo","צילום"],["type","הקלדה"]].map(([k,t])=>`<button data-src="${k}" aria-pressed="${draft.src===k}">${t}</button>`).join("");
   let body = "";
   if (draft.src==="photo"){
     body = photoOK ? `<div class="drop">
@@ -696,7 +730,8 @@ function addView(){
       <div class="topics"><button class="topic" data-topic="__all" style="background:var(--accent-soft)"><span><b>כל המאגר של כיתה ${draft.bankGrade}</b><br><span class="muted" style="font-size:.85rem">כל הנושאים ברשימה אחת, מחולקת לקבוצות של 10</span></span><span class="pill num">${bankAll(draft.bankGrade).length} מילים</span></button>${topics}</div>`;
   }
   const editor = draft.words.length ? reviewBlock() : "";
-  return `  <h2>${draft.editId?"עריכת רשימה":"רשימה חדשה"}</h2>
+  return `  <h2>${draft.editId?"עריכת המילים":`הוספת מילים לכיתה ${esc(state.grade)}`}</h2>
+  ${draft.editId?"":`<p class="muted">המילים נשמרות במילים של הכיתה ומצטרפות לתרגול, יחד עם כל שאר המילים.</p>`}
   ${draft.editId?"":`<div class="tabs" role="group" aria-label="מקור המילים">${tabs}</div>`}
   ${draft.busy?`<div class="card row"><div class="spinner" aria-hidden="true"></div><span id="busytxt">${esc(draft.busy)}</span></div>`:""}
   ${draft.err?`<div class="note warn">${esc(draft.err)}</div>`:""}
@@ -707,25 +742,23 @@ function addView(){
 function reviewBlock(){
   const isAuto = w => (w.note||"").startsWith("תרגום אוטומטי");
   const flagged = draft.words.filter(w=>w.flag && !isAuto(w)).length, auto = draft.words.filter(w=>w.flag && isAuto(w)).length, warn = draft.words.filter(w=>w.chk==="sug"||w.chk==="bad").length;
-  const issues = uniqIssues(draft.words);
+  const issues = uniqIssues(draft.words, draft.editId ? [] : (masterOf(state.grade)||{words:[]}).words);
+  const have = draft.editId ? new Set() : masterEns();
   const CHK = {ok:'<span class="chk ok" title="האיות נבדק">✓</span>', bad:'<span class="chk bad" title="לא נמצא במילון">?</span>', busy:'<span class="chk busy">…</span>'};
   const rows = draft.words.map((w,i)=>`<div class="edit-row ${w.flag?"flag":""} ${w.chk==="sug"||w.chk==="bad"?"spell-warn":""}">
     <span class="en-wrap"><input type="text" id="en-${i}" dir="ltr" class="en" value="${esc(w.en)}" aria-label="מילה באנגלית">${CHK[w.chk]||""}</span>
     <input type="text" id="he-${i}" value="${esc(w.he)}" placeholder="תרגום" aria-label="תרגום" class="${issues[i]?"he-bad":""}">
     <button class="icon-btn" data-del="${i}" aria-label="הסרת המילה">✕</button>
-  </div>${issues[i]?`<p class="sug">${esc(issues[i])}</p>`:""}${w.chk==="sug"?`<p class="sug">האם התכוונת ל-<button class="sug-btn en" data-sugacc="${i}">${esc(w.sug)}</button>?</p>`:w.chk==="bad"?`<p class="sug">המילה לא נמצאה במילון. כדאי לבדוק את האיות.</p>`:""}${w.flag&&w.note&&!isAuto(w)?`<p class="muted" style="font-size:.85rem;margin-top:-4px">${esc(w.note)}</p>`:""}`).join("");
+  </div>${have.has(enKey(w))?`<p class="muted" style="font-size:.85rem;margin-top:-4px">המילה כבר נמצאת במילים של הכיתה, ההתקדמות שלה נשמרת.</p>`:""}${issues[i]?`<p class="sug">${esc(issues[i])}</p>`:""}${w.chk==="sug"?`<p class="sug">האם התכוונת ל-<button class="sug-btn en" data-sugacc="${i}">${esc(w.sug)}</button>?</p>`:w.chk==="bad"?`<p class="sug">המילה לא נמצאה במילון. כדאי לבדוק את האיות.</p>`:""}${w.flag&&w.note&&!isAuto(w)?`<p class="muted" style="font-size:.85rem;margin-top:-4px">${esc(w.note)}</p>`:""}`).join("");
   return `<div class="card">
     <h3>בדיקת המילים לפני תרגול</h3>
     <div class="note">${[warn?`${warn} מילים מסומנות באדום: כדאי לבדוק את האיות שלהן.`:"", auto?`${auto} תרגומים אוטומטיים מסומנים בצהוב. למילה יכולים להיות כמה פירושים (מופרדים ב-/). אפשר להשאיר את כולם או למחוק פירוש שלא מתאים.`:"", flagged?`${flagged} מילים מסומנות בצהוב כי יש להן יותר ממשמעות אחת. כתבו את התרגום שהמורה ביקשה.`:""].filter(Boolean).join("<br>") || "בדקו שהתרגום תואם למה שהמורה לימדה. אפשר לתקן כל שורה."}</div>
     <div style="display:flex;flex-direction:column;gap:8px">${rows}</div>
     ${(NET || (window.claude && sample && canImages)) ? `<details class="add-photo"><summary>📷 הוספת מילים מצילום</summary><div style="margin-top:8px">${photoButtons()}</div></details>` : ""}
     <div class="row"><button class="btn small soft" data-act="addrow">+ מילה</button>${NET?`<button class="btn small soft" data-act="netcheck">בדיקת איות ותרגום באינטרנט</button>`:""}</div>
-    <div class="field"><label for="lname">שם הרשימה</label><input type="text" id="lname" value="${esc(draft.name)}" placeholder="למשל: יחידה 5"></div>
-    <div class="row" style="align-items:flex-end">
-      <div class="field" style="flex:1;min-width:140px"><label for="lgrade">כיתה</label><select id="lgrade">${["ד'","ה'","ו'","ז'","ח'"].map(g=>`<option ${draft.grade===g?"selected":""}>${g}</option>`).join("")}</select></div>
-      <div class="field" style="flex:1;min-width:150px"><label for="ldate">תאריך המבחן</label><input type="date" id="ldate" value="${esc(draft.testDate)}"></div>
-    </div>
-    <button class="btn" data-act="savelist">שמירה והתחלת תרגול</button>
+    ${draft.editId?"":`<div class="field"><label for="lname">שם לקבוצה (לא חובה)</label><input type="text" id="lname" value="${esc(draft.name)}" placeholder="למשל: יחידה 5"></div>`}
+    <button class="btn" data-act="savelist">${draft.editId?"שמירת השינויים":"שמירה במילים של הכיתה"}</button>
+    ${draft.editId?"":`<button class="btn ghost small" data-act="discard">ביטול המילים האלה</button>`}
   </div>`;
 }
 
@@ -776,17 +809,23 @@ async function parseTyped(){
   if(NET) netCheck();
 }
 
+let FLASH = "";
+const nW = n => n===1 ? "מילה אחת" : `${n} מילים`;
 function saveDraft(){
   syncDraftInputs();
+  const m = ensureMaster(state.grade), have = new Set(m.words.map(enKey));
   const words = draft.words.filter(w=>w.en);
-  if(words.length<2){ draft.err="צריך לפחות 2 מילים כדי לתרגל."; return render(); }
-  const noHe = words.filter(w=>!w.he).length;
+  if(!words.length){ draft.err="הוסיפו לפחות מילה אחת."; return render(); }
+  const seen = new Set(), fresh = words.filter(w=>{ const k=enKey(w); if(have.has(k)||seen.has(k)) return false; seen.add(k); return true; });
+  const noHe = fresh.filter(w=>!w.he).length;
   if(noHe){ draft.err=`חסר תרגום ל-${noHe} מילים. השלימו או הסירו אותן.`; return render(); }
-  if(Object.keys(uniqIssues(draft.words)).length){ draft.err=UNIQ_ERR; return render(); }
-  words.forEach(w=>w.he=joinHe(heList(w.he)));
-  const l = {id:uid(), name:draft.name.trim()||"רשימה חדשה", grade:draft.grade, testDate:draft.testDate, words:words.map(w=>mkWord(w.en,w.he))};
-  if(draft.groupNames && words.length===draft.origLen) l.groupNames = draft.groupNames;
-  state.lists.push(l); save(); draft=null; go({name:"list", id:l.id});
+  if(Object.keys(uniqIssues(draft.words, m.words)).length){ draft.err=UNIQ_ERR; return render(); }
+  const d = new Date(), label = draft.name.trim() && !/^רשימה (חדשה|מצילום|מהמורה)$/.test(draft.name.trim()) ? draft.name.trim() : `${ADDED} ${d.getDate()}/${d.getMonth()+1}`;
+  m.words = fresh.map(w=>({...mkWord(w.en, joinHe(heList(w.he))), g:label})).concat(m.words);
+  m.sel = "all"; MIX = {id:null, set:new Set()};
+  const dup = words.length - fresh.length;
+  FLASH = fresh.length ? `✓ ${nW(fresh.length)} נשמרו במילים של כיתה ${esc(state.grade)} (קבוצה "${esc(label)}"). הן כבר בתרגול, יחד עם כל שאר המילים.${dup?` ${dup===1?"מילה אחת כבר הייתה קיימת":dup+" מילים כבר היו קיימות"}.`:""}` : "כל המילים האלה כבר נמצאות במילים של הכיתה.";
+  state.pendingDraft = null; save(); draft=null; HIST = HIST.filter(v=>v.name!=="add"); go({name:"list", id:m.id});
 }
 
 /* ---------- session settings & groups ---------- */
@@ -794,16 +833,30 @@ let OPEN_SET = false;
 const GSIZE = 10;
 let MIX = {id:null, set:new Set()};
 const readinessW = ws => ws.length ? Math.round(ws.reduce((a,w)=>a+w.box,0)/(MAXBOX*ws.length)*100) : 0;
+const prevMaster = l => (l.master && state.prefs.prev && l.grade===state.grade && prevGrade()) ? ensureMaster(prevGrade()) : null;
+function allWords(l){ const pm = prevMaster(l); return pm ? l.words.concat(pm.words) : l.words; }
 function groupsOf(l){
-  const n = Math.ceil(l.words.length/GSIZE);
-  return Array.from({length:n},(_,i)=>({i, label:(l.groupNames&&l.groupNames[i])||`קבוצה ${i+1}`, words:l.words.slice(i*GSIZE,(i+1)*GSIZE)}));
+  if(!l.master){
+    const n = Math.ceil(l.words.length/GSIZE);
+    return Array.from({length:n},(_,i)=>({i, key:i, label:(l.groupNames&&l.groupNames[i])||`קבוצה ${i+1}`, words:l.words.slice(i*GSIZE,(i+1)*GSIZE)}));
+  }
+  const order=[], map={};
+  const add=(w,label)=>{ if(!map[label]){ map[label]=[]; order.push(label); } map[label].push(w); };
+  l.words.forEach(w=>add(w, w.g||ADDED));
+  const pm = prevMaster(l); if(pm) pm.words.forEach(w=>add(w, `חזרה ${pm.grade}: ${w.g||ADDED}`));
+  return order.map((label,i)=>({i, key:label, label, words:map[label]}));
 }
 function mixActive(l){ return MIX.id===l.id; }
+function selGroup(l){
+  const gs = groupsOf(l);
+  if(l.sel==="custom" && l.custom){ const set=new Set(l.custom.ens); const ws=allWords(l).filter(w=>set.has(w.en)); return ws.length ? {key:"custom", label:l.custom.label, words:ws} : null; }
+  return gs.find(g=>g.key===l.sel) || null;
+}
 function activePool(l){
   const gs = groupsOf(l);
-  if(mixActive(l) && MIX.set.size>=2) return gs.filter(g=>MIX.set.has(g.i)).flatMap(g=>g.words);
-  if(typeof l.sel==="number" && gs[l.sel]) return gs[l.sel].words;
-  return l.words;
+  if(mixActive(l) && MIX.set.size>=2) return gs.filter(g=>MIX.set.has(String(g.key))).flatMap(g=>g.words);
+  const g = selGroup(l); if(g) return g.words;
+  return allWords(l);
 }
 function prevToggle(){
   const pg = prevGrade(); if(!pg) return "";
@@ -822,9 +875,11 @@ function groupBar(l){
   const gs = groupsOf(l); if(gs.length<2) return "";
   const mix = mixActive(l);
   const chip=(key,label,pct,on)=>`<button data-grp="${key}" aria-pressed="${on}">${esc(label)}${pct===null?"":` <span class="muted num">${pct}%</span>`}</button>`;
+  const cur = selGroup(l);
   return `<div class="setrow"><span class="muted">${mix?"בחרו קבוצות לערבוב":"קבוצה"}</span><div class="seg ${gs.length>4?"small":""}">
-    ${mix?"":chip("all",`כל המילים (${l.words.length})`,null,!(typeof l.sel==="number"))}
-    ${gs.map(g=>chip(g.i,g.label,readinessW(g.words), mix?MIX.set.has(g.i):l.sel===g.i)).join("")}
+    ${mix?"":chip("all",`כל המילים (${allWords(l).length})`,null,!cur)}
+    ${!mix && cur && cur.key==="custom" ? chip("custom",cur.label,readinessW(cur.words),true) : ""}
+    ${gs.map(g=>chip(g.key,g.label,readinessW(g.words), mix?MIX.set.has(String(g.key)):(cur&&cur.key===g.key))).join("")}
   </div>
   <div class="row"><button class="btn small ${mix?"":"soft"}" data-act="mix">${mix?"ביטול הערבוב":"ערבוב חד פעמי בין קבוצות"}</button>
   ${mix?`<span class="muted" style="font-size:.9rem">${MIX.set.size<2?"בחרו לפחות 2 קבוצות.":`${MIX.set.size} קבוצות נבחרו. הערבוב יחול על הסשן הבא בלבד.`}</span>`:""}</div></div>`;
@@ -957,7 +1012,7 @@ function resultView(l){
     <p>${msg}</p>
     <div style="width:100%"><div class="row spread"><span class="muted">מוכנות למבחן עכשיו</span><b class="num">${r}%</b></div><div class="meter"><i style="width:${r}%"></i></div></div>
     ${missed.length?`<div style="width:100%;text-align:start"><h3>לחזור עליהן</h3>${missed.map(w=>`<div class="word-row"><span class="en">${esc(w.en)}</span><span>${esc(w.he)}</span><span></span></div>`).join("")}</div>`:""}
-    <div class="row"><button class="btn" data-act="again">עוד סיבוב</button><button class="btn soft" data-act="tolist">חזרה לרשימה</button></div>
+    <div class="row"><button class="btn" data-act="again">עוד סיבוב</button><button class="btn soft" data-act="tolist">חזרה לכיתה</button></div>
   </div>`;
 }
 
@@ -995,7 +1050,7 @@ function parentView(){
     const gsx = groupsOf(l).filter(g=>g.words.some(w=>w.right||w.wrong)).map(g=>({...g, r:readinessW(g.words)})).sort((a,b)=>a.r-b.r);
     return `<div class="card">
       <div class="row spread"><h3>${esc(l.name)}</h3><span class="pill ${state_[0]}">${state_[1]}</span></div>
-      <div class="row"><span class="pill">${dueLabel(l.testDate)||"בלי תאריך"}</span>${l.example?'<span class="pill marker">דוגמה</span>':""}</div>
+      ${l.master?"":`<div class="row"><span class="pill">${dueLabel(l.testDate)||"בלי תאריך"}</span></div>`}
       <div class="row spread"><span>מוכנות</span><b class="num">${r}%</b></div><div class="meter"><i style="width:${r}%"></i></div>
       <p class="muted num">${mastered} מתוך ${l.words.length} מילים יושבות טוב${untried?` · ${untried} עוד לא תורגלו`:""}.</p>
       ${t.length?`<div><b style="color:var(--bad)">מילים שהוא טועה בהן (${t.length}):</b>
@@ -1055,7 +1110,7 @@ function dictResults(){
     <span>${esc(w.he)}</span>
     <span class="muted" style="font-size:.8rem">${gl(w.g)} · ${esc(w.t)}</span>
     ${bx>=0?dots(bx):"<span></span>"}</div>`; }).join("")}</div>
-  ${r.length?`<button class="btn soft" data-act="dictpractice">יצירת רשימה לתרגול מ-${r.length} המילים האלה</button>`:`<p>לא נמצאו מילים. נסו חיפוש אחר.</p>`}`;
+  ${r.length?`<button class="btn soft" data-act="dictpractice">תרגול ${r.length} המילים האלה</button>`:`<p>לא נמצאו מילים. נסו חיפוש אחר.</p>`}`;
 }
 function dictView(){
   const gs = dictGrades();
@@ -1334,7 +1389,7 @@ function render(){
   else if(view.name==="kids") app.innerHTML = kidsStartView();
   else if(view.name==="kidsGame"){ app.innerHTML = kidsGameView(); if(K.i>=K.qs.length && !K.cheered){ K.cheered=true; speakSeq([["כל הכבוד! סיימת","he"]]); } }
   else if(view.name==="grade") app.innerHTML = gradeView();
-  else if(view.name==="home") app.innerHTML = homeView();
+  else if(view.name==="home"){ const m=pickGradeList(); view = m ? {name:"list", id:m.id} : {name:"grade"}; return render(); }
   else if(view.name==="parent") app.innerHTML = parentView();
   else if(view.name==="list") app.innerHTML = listView() || "";
   else if(view.name==="add") app.innerHTML = addView();
@@ -1343,6 +1398,7 @@ function render(){
   if(!["grade","kidsGame"].includes(view.name)) app.insertAdjacentHTML("afterbegin", topBar());
   const ph = $("#photo"); if(ph) ph.onchange = e => { const f=e.target.files[0]; if(f) readPhoto(f); };
   document.querySelectorAll(".photo-in").forEach(inp=>{ inp.onchange = e => { syncDraftInputs(); const f=e.target.files[0]; if(f) onPhoto(f); }; });
+  if(view.name==="add" && draft) keepDraft();
   const sf = $("#spellform"); if(sf) sf.onsubmit = e => { e.preventDefault(); checkSpell(); };
   const dq = $("#dq"); if(dq) dq.oninput = e => { DQ.q = e.target.value; $("#dres").innerHTML = dictResults(); };
   const gf = $("#gform"); if(gf) gf.onsubmit = e => { e.preventDefault(); const v=$("#gin").value; if(!v.trim()) return; const q=G.qs[G.i]; G.typed=v; gramAnswer(norm(v)===norm(q.answer) || (q.alt||[]).some(a=>norm(a)===norm(v)), v.trim()); };
@@ -1371,12 +1427,12 @@ document.addEventListener("click", e=>{
   if(d.porder){ state.prefs.order = d.porder; save(); return render(); }
   if(d.grp!==undefined){
     const l = state.lists.find(x=>x.id===view.id); if(!l) return;
-    if(mixActive(l)){ const k=+d.grp; MIX.set.has(k)?MIX.set.delete(k):MIX.set.add(k); }
-    else { l.sel = d.grp==="all" ? "all" : +d.grp; save(); }
+    if(mixActive(l)){ const k=String(d.grp); MIX.set.has(k)?MIX.set.delete(k):MIX.set.add(k); }
+    else { l.sel = d.grp==="all" ? "all" : d.grp==="custom" ? "custom" : l.master ? d.grp : +d.grp; save(); }
     return render();
   }
   if(d.gmod) return startGram(d.gmod);
-  if(d.act==="back") return goBack();
+  if(d.act==="back"){ if(view.name==="add"){ syncDraftInputs(); keepDraft(); } return goBack(); }
   if(d.act==="focus") return go({name:"focus"});
   if(d.act==="dict") return go({name:"dict"});
   if(d.act==="prevtoggle"){ state.prefs.prev = !state.prefs.prev; save(); return render(); }
@@ -1384,11 +1440,11 @@ document.addEventListener("click", e=>{
   if(d.dt){ DQ.t=d.dt; return render(); }
   if(d.sayw) return say(d.sayw);
   if(d.act==="dictpractice"){
-    const r = dictFiltered(); newDraft(); draft.src="bank";
-    draft.words = r.map(w=>({en:w.en, he:w.he, flag:false, note:""}));
-    const label = DQ.q.trim() ? `חיפוש: ${DQ.q.trim()}` : DQ.t!=="all" ? DQ.t : `אוצר המילים – כיתה ${state.grade}`;
-    draft.name = label; draft.grade = state.grade; draft.testDate = "";
-    return go({name:"add"});
+    const r = dictFiltered(), m = ensureMaster(state.grade);
+    const label = DQ.q.trim() ? `חיפוש: ${DQ.q.trim()}` : DQ.t!=="all" ? DQ.t : "";
+    m.sel = label ? "custom" : "all"; m.custom = label ? {label, ens:r.map(w=>w.en)} : null;
+    if(r.some(w=>w.g!==state.grade) && !state.prefs.prev) state.prefs.prev = true;
+    save(); return go({name:"list", id:m.id});
   }
   if(d.focuslist){ view = {name:"list", id:d.focuslist}; return startPractice("focus"); }
   if(d.gopt!==undefined && G && !G.done){ G.pick=+d.gopt; { const o=G.qs[G.i].opts[+d.gopt]; return gramAnswer(o===G.qs[G.i].answer, o); } }
@@ -1425,18 +1481,20 @@ document.addEventListener("click", e=>{
   }
   switch(d.act){
     case "home": draft=null; return goGradePage();
-    case "add": newDraft(); return go({name:"add"});
+    case "add": newDraft(); if(state.pendingDraft && state.pendingDraft.grade===state.grade){ Object.assign(draft, state.pendingDraft); draft.words = state.pendingDraft.words.map(w=>({...w})); } return go({name:"add"});
+    case "resume": newDraft(); if(state.pendingDraft){ Object.assign(draft, state.pendingDraft); draft.words = state.pendingDraft.words.map(w=>({...w})); } return go({name:"add"});
+    case "discard": state.pendingDraft=null; save(); draft=null; return goGradePage();
     case "parse": syncDraftInputs(); return parseTyped();
-    case "grade": return go({name:"grade"});
+    case "grade": if(view.name==="add"){ syncDraftInputs(); keepDraft(); } return go({name:"grade"});
     case "addrow": syncDraftInputs(); draft.words.push({en:"",he:"",flag:false,note:""}); render(); const last=$("#en-"+(draft.words.length-1)); if(last) last.focus(); return;
     case "savelist": return view.name==="edit" ? saveEdit() : saveDraft();
-    case "edit": { const l=state.lists.find(x=>x.id===view.id); draft={src:"type",name:l.name,grade:l.grade,testDate:l.testDate,words:l.words.map(w=>({en:w.en,he:w.he,flag:false,note:"",id:w.id})),typed:"",busy:false,err:"",bankGrade:"ו'",editId:l.id}; return go({name:"edit", id:l.id}); }
+    case "edit": { const l=state.lists.find(x=>x.id===view.id); draft={src:"type",name:l.name,grade:l.grade,testDate:l.testDate,words:l.words.map(w=>({en:w.en,he:w.he,flag:false,note:"",id:w.id,g:w.g})),typed:"",busy:false,err:"",bankGrade:"ו'",editId:l.id}; return go({name:"edit", id:l.id}); }
     case "delete-ask": $("#delbox").hidden=false; return;
     case "delete-cancel": $("#delbox").hidden=true; return;
     case "delete": state.lists=state.lists.filter(x=>x.id!==view.id); save(); return goGradePage();
     case "reset-ask": $("#resetbox").hidden=false; return;
     case "reset-cancel": $("#resetbox").hidden=true; return;
-    case "reset": state={grade:null, lists:[], prefs:{size:10,order:"weak"}, gram:{}, gsG:{}, gramG:{}}; save(); return go({name:"home"});
+    case "reset": state={grade:null, lists:[], prefs:{size:10,order:"weak"}, gram:{}, gsG:{}, gramG:{}}; save(); HIST=[]; return go({name:"grade"});
     case "say": return say(P.items[P.i].w.en);
     case "slow": return say(P.items[P.i].w.en, true);
     case "next": P.i++; P.feedback=""; P.fbClass=""; render(); setTimeout(()=>{autoSpeak(); focusSpell();},150); return;
@@ -1455,10 +1513,11 @@ function saveEdit(){
   if(Object.keys(uniqIssues(draft.words)).length){ draft.err=UNIQ_ERR; return render(); }
   words.forEach(w=>w.he=joinHe(heList(w.he)));
   const old = Object.fromEntries(l.words.map(w=>[w.id,w]));
-  l.words = words.map(w=>{ const o=w.id&&old[w.id]; if(o && o.en===w.en){ o.he=w.he; return o; } return mkWord(w.en,w.he); });
+  l.words = words.map(w=>{ const o=w.id&&old[w.id]; if(o && o.en===w.en){ o.he=w.he; return o; } const n=mkWord(w.en,w.he); n.g = w.g || ADDED; return n; });
   if(l.words.length!==Object.keys(old).length) delete l.groupNames;
   l.sel = "all";
-  l.name = draft.name.trim()||l.name; l.grade=draft.grade; l.testDate=draft.testDate; l.example=false;
+  if(!l.master){ l.name = draft.name.trim()||l.name; l.grade=draft.grade; l.testDate=draft.testDate; }
+  l.example=false;
   save(); const id=l.id; draft=null; go({name:"list", id});
 }
 
