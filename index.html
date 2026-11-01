@@ -89,6 +89,13 @@ textarea{min-height:140px;resize:vertical}
 .field{display:flex;flex-direction:column;gap:6px}
 .edit-row{display:grid;grid-template-columns:1fr 1fr 40px;gap:8px;align-items:center}
 .edit-row.flag input{border-color:var(--marker)}
+.en-wrap{position:relative;display:block;min-width:0}
+.en-wrap input{padding-right:30px;padding-left:12px}
+.chk{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-weight:800}
+.chk.ok{color:var(--good)} .chk.bad{color:var(--bad)} .chk.busy{color:var(--muted)}
+.spell-warn .en-wrap input{border-color:var(--bad)}
+.sug{margin:-4px 0 0;font-size:.9rem;color:var(--bad)}
+.sug-btn{background:var(--good-soft);color:var(--good);font-weight:800;padding:2px 8px;border-radius:8px}
 .icon-btn{width:40px;height:40px;background:transparent;color:var(--muted);font-size:1.2rem}
 .note{background:var(--accent-soft);border-radius:10px;padding:10px 12px;font-size:.95rem}
 .note.warn{background:var(--marker);color:var(--marker-ink)}
@@ -416,14 +423,88 @@ function setGrade(g){
   save(); go({name:"home"});
 }
 
+/* ---------- internet spelling, translation and photo reading (website only) ---------- */
+const NET = !window.claude;   // inside Claude the page can't reach other sites
+async function getJSON(url){ const r = await fetch(url); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function spellCheck(word){
+  const w = word.trim().toLowerCase();
+  const sug = await getJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(w)}&max=5`);
+  if(sug.some(x=>x.word.toLowerCase()===w)) return {chk:"ok"};
+  const sp = await getJSON(`https://api.datamuse.com/words?sp=${encodeURIComponent(w)}&max=1`);
+  if(sp[0] && sp[0].word.toLowerCase()===w) return {chk:"ok"};
+  return sug[0] ? {chk:"sug", sug:sug[0].word} : {chk:"bad"};
+}
+async function translateHe(word){
+  const j = await getJSON(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|he`);
+  const t = (j && j.responseData && j.responseData.translatedText || "").trim();
+  return (!t || /[A-Za-z]/.test(t)) ? "" : t;
+}
+async function pool(items, n, fn){ let i=0; await Promise.all(Array.from({length:n}, async ()=>{ while(i<items.length){ const k=i++; await fn(items[k]); } })); }
+function setBusy(t){ const el=$("#busytxt"); if(el) el.textContent=t; }
+async function netCheck(onlyIdx){
+  if(!NET || !draft) return;
+  syncDraftInputs();
+  const todo = draft.words.filter((w,i)=>w.en && (onlyIdx===undefined || i===onlyIdx) && w.chk!=="ok");
+  if(!todo.length && onlyIdx===undefined){ draft.err=""; return; }
+  todo.forEach(w=>w.chk="busy");
+  let done=0; draft.err=""; draft.busy=`בודק איות ותרגום באינטרנט... 0/${todo.length}`; render();
+  let failed=false;
+  await pool(todo, 4, async w=>{
+    try{
+      const r = await spellCheck(w.en); w.chk=r.chk; w.sug=r.sug||"";
+      if(r.chk==="ok" && !w.he){ const t = await translateHe(w.en); if(t){ w.he=t; w.flag=true; w.note="תרגום אוטומטי מהאינטרנט. כדאי לוודא שזו המשמעות שהמורה לימדה."; } }
+    }catch(e){ w.chk=""; failed=true; }
+    setBusy(`בודק איות ותרגום באינטרנט... ${++done}/${todo.length}`);
+  });
+  // keep anything typed during the check, without wiping translations that just arrived
+  draft.words.forEach((w,i)=>{ const h=$("#he-"+i);
+    if(h && h.value.trim() && h.value.trim()!==w.he){ w.he=h.value.trim(); w.flag=false; w.note=""; } });
+  const n=$("#lname"), g=$("#lgrade"), d=$("#ldate"); if(n) draft.name=n.value; if(g) draft.grade=g.value; if(d) draft.testDate=d.value;
+  draft.busy=false;
+  if(failed) draft.err="לא הצלחתי להתחבר לאינטרנט לבדיקה. אפשר לבדוק שוב מאוחר יותר או להשלים ידנית.";
+  render();
+}
+function loadScript(src){ return new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src=src; sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); }); }
+const OCR_SKIP = new Set(["name","date","unit","vocabulary","words","word","list","class","page","english","test","lesson","grade","homework","quiz"]);
+function extractWords(text){
+  const out=[], seen=new Set();
+  for(const line of String(text).split(/\n+/)){
+    for(const part of line.replace(/^[\s\d.\-)•*·:]+/,"").split(/[,;/|]/)){
+      const m = part.split(/\s+[-–—=:]+\s+|\t/)[0].match(/[A-Za-z][A-Za-z'’ -]*[A-Za-z]/);
+      if(!m) continue;
+      const w = m[0].replace(/[’]/g,"'").replace(/\s+/g," ").trim().toLowerCase();
+      if(w.length<2 || w.split(" ").length>3 || OCR_SKIP.has(w) || seen.has(w)) continue;
+      seen.add(w); out.push(w);
+    }
+  }
+  return out.slice(0,60);
+}
+async function ocrPhoto(file){
+  draft.err=""; draft.busy="טוען את קורא הטקסט..."; render();
+  try{
+    if(!window.Tesseract) await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+    const worker = await Tesseract.createWorker("eng", 1, {logger:m=>{ if(m.status==="recognizing text") setBusy(`קורא את הדף... ${Math.round(m.progress*100)}%`); }});
+    const { data } = await worker.recognize(file);
+    await worker.terminate();
+    const words = extractWords(data.text);
+    if(!words.length) throw new Error("no words");
+    draft.words = words.map(en=>({en, he:"", flag:false, note:""}));
+    if(!draft.name) draft.name = "רשימה מצילום";
+    draft.busy=false; render();
+    await netCheck();
+  }catch(e){
+    draft.busy=false; draft.err="לא הצלחתי לקרוא מילים מהתמונה. נסו צילום ישר, מואר וחד של דף מודפס, או הקלידו את המילים."; render();
+  }
+}
+
 /* ---------- add list ---------- */
 let draft = null;
-function newDraft(){ draft = {src:(window.claude?"photo":"type"), name:"", grade:state.grade||"ו'", testDate:dayISO(4), words:[], typed:"", busy:false, err:"", bankGrade:state.grade||"ו'"}; }
+function newDraft(){ draft = {src:"type", name:"", grade:state.grade||"ו'", testDate:dayISO(4), words:[], typed:"", busy:false, err:"", bankGrade:state.grade||"ו'"}; }
 
 function addView(){
   if(!draft) newDraft();
   const photoOK = sample && canImages;
-  const tabs = (window.claude?[["photo","צילום"]]:[]).concat([["type","הקלדה"],["bank","מאגר מוכן"]]).map(([k,t])=>`<button data-src="${k}" aria-pressed="${draft.src===k}">${t}</button>`).join("");
+  const tabs = [["photo","צילום"],["type","הקלדה"],["bank","מאגר מוכן"]].map(([k,t])=>`<button data-src="${k}" aria-pressed="${draft.src===k}">${t}</button>`).join("");
   let body = "";
   if (draft.src==="photo"){
     body = photoOK ? `<div class="drop">
@@ -431,7 +512,14 @@ function addView(){
         <p class="muted">Claude יקרא את המילים ויציע תרגום. אתם מאשרים לפני שמתחילים.</p>
         <label class="btn" for="photo">בחירת תמונה</label>
         <input id="photo" type="file" accept="image/*" hidden>
-      </div>` : `<div class="note">${sample===null && window.claude ? "בודק אם קריאת תמונות זמינה..." : "קריאת תמונה זמינה כשפותחים את העמוד ב-Claude. בינתיים אפשר להקליד את הרשימה."}</div>`;
+      </div>` : window.claude ? `<div class="note">${sample===null ? "בודק אם קריאת תמונות זמינה..." : "קריאת תמונה לא זמינה כאן. אפשר להקליד את הרשימה."}</div>`
+      : `<div class="drop">
+        <p><b>מצלמים את דף המילים מהמורה</b></p>
+        <p class="muted">הטלפון קורא את המילים באנגלית מהתמונה, ואז בודקים איות ומוסיפים תרגום מהאינטרנט. אתם מאשרים לפני שמתחילים.</p>
+        <label class="btn" for="photo2">צילום או בחירת תמונה</label>
+        <input id="photo2" type="file" accept="image/*" hidden>
+        <p class="muted" style="font-size:.85rem">עובד הכי טוב על דף מודפס, ישר ומואר. בכתב יד הקריאה פחות מדויקת. בפעם הראשונה הטעינה לוקחת כמה שניות.</p>
+      </div>`;
   } else if (draft.src==="type"){
     body = `<div class="field"><label for="typed">מילה בכל שורה. אפשר להוסיף תרגום אחרי מקף.</label>
       <textarea id="typed" dir="ltr" placeholder="journey - מסע&#10;borrow&#10;neighbor - שכן">${esc(draft.typed)}</textarea></div>
@@ -451,24 +539,26 @@ function addView(){
   return `<button class="back" data-act="home">→ ביטול</button>
   <h2>${draft.editId?"עריכת רשימה":"רשימה חדשה"}</h2>
   ${draft.editId?"":`<div class="tabs" role="group" aria-label="מקור המילים">${tabs}</div>`}
-  ${draft.busy?`<div class="card row"><div class="spinner" aria-hidden="true"></div><span>${esc(draft.busy)}</span></div>`:""}
+  ${draft.busy?`<div class="card row"><div class="spinner" aria-hidden="true"></div><span id="busytxt">${esc(draft.busy)}</span></div>`:""}
   ${draft.err?`<div class="note warn">${esc(draft.err)}</div>`:""}
   ${draft.words.length?"":body}
   ${editor}`;
 }
 
 function reviewBlock(){
-  const flagged = draft.words.filter(w=>w.flag).length;
-  const rows = draft.words.map((w,i)=>`<div class="edit-row ${w.flag?"flag":""}">
-    <input type="text" id="en-${i}" dir="ltr" class="en" value="${esc(w.en)}" aria-label="מילה באנגלית">
+  const isAuto = w => (w.note||"").startsWith("תרגום אוטומטי");
+  const flagged = draft.words.filter(w=>w.flag && !isAuto(w)).length, auto = draft.words.filter(w=>w.flag && isAuto(w)).length, warn = draft.words.filter(w=>w.chk==="sug"||w.chk==="bad").length;
+  const CHK = {ok:'<span class="chk ok" title="האיות נבדק">✓</span>', bad:'<span class="chk bad" title="לא נמצא במילון">?</span>', busy:'<span class="chk busy">…</span>'};
+  const rows = draft.words.map((w,i)=>`<div class="edit-row ${w.flag?"flag":""} ${w.chk==="sug"||w.chk==="bad"?"spell-warn":""}">
+    <span class="en-wrap"><input type="text" id="en-${i}" dir="ltr" class="en" value="${esc(w.en)}" aria-label="מילה באנגלית">${CHK[w.chk]||""}</span>
     <input type="text" id="he-${i}" value="${esc(w.he)}" placeholder="תרגום" aria-label="תרגום">
     <button class="icon-btn" data-del="${i}" aria-label="הסרת המילה">✕</button>
-  </div>${w.flag&&w.note?`<p class="muted" style="font-size:.85rem;margin-top:-4px">${esc(w.note)}</p>`:""}`).join("");
+  </div>${w.chk==="sug"?`<p class="sug">האם התכוונת ל-<button class="sug-btn en" data-sugacc="${i}">${esc(w.sug)}</button>?</p>`:w.chk==="bad"?`<p class="sug">המילה לא נמצאה במילון. כדאי לבדוק את האיות.</p>`:""}${w.flag&&w.note&&!isAuto(w)?`<p class="muted" style="font-size:.85rem;margin-top:-4px">${esc(w.note)}</p>`:""}`).join("");
   return `<div class="card">
     <h3>בדיקת המילים לפני תרגול</h3>
-    <div class="note">${flagged?`${flagged} מילים מסומנות בצהוב: יש להן יותר ממשמעות אחת. כתבו את התרגום שהמורה ביקשה.`:"בדקו שהתרגום תואם למה שהמורה לימדה. אפשר לתקן כל שורה."}</div>
+    <div class="note">${[warn?`${warn} מילים מסומנות באדום: כדאי לבדוק את האיות שלהן.`:"", auto?`${auto} תרגומים אוטומטיים מסומנים בצהוב: כדאי לוודא שהם המשמעות שהמורה לימדה.`:"", flagged?`${flagged} מילים מסומנות בצהוב כי יש להן יותר ממשמעות אחת. כתבו את התרגום שהמורה ביקשה.`:""].filter(Boolean).join("<br>") || "בדקו שהתרגום תואם למה שהמורה לימדה. אפשר לתקן כל שורה."}</div>
     <div style="display:flex;flex-direction:column;gap:8px">${rows}</div>
-    <button class="btn small soft" data-act="addrow">+ מילה</button>
+    <div class="row"><button class="btn small soft" data-act="addrow">+ מילה</button>${NET?`<button class="btn small soft" data-act="netcheck">בדיקת איות ותרגום באינטרנט</button>`:""}</div>
     <div class="field"><label for="lname">שם הרשימה</label><input type="text" id="lname" value="${esc(draft.name)}" placeholder="למשל: יחידה 5"></div>
     <div class="row" style="align-items:flex-end">
       <div class="field" style="flex:1;min-width:140px"><label for="lgrade">כיתה</label><select id="lgrade">${["ד'","ה'","ו'","ז'","ח'"].map(g=>`<option ${draft.grade===g?"selected":""}>${g}</option>`).join("")}</select></div>
@@ -480,7 +570,7 @@ function reviewBlock(){
 
 function syncDraftInputs(){
   if(!draft) return;
-  draft.words.forEach((w,i)=>{ const e=$("#en-"+i), h=$("#he-"+i); if(e) w.en=e.value.trim(); if(h) w.he=h.value.trim(); if(h && w.flag && h.value.trim()) {} });
+  draft.words.forEach((w,i)=>{ const e=$("#en-"+i), h=$("#he-"+i); if(e && e.value.trim()!==w.en){ w.chk=""; w.sug=""; } if(e) w.en=e.value.trim(); if(h) w.he=h.value.trim(); if(h && w.flag && h.value.trim()) {} });
   const n=$("#lname"), g=$("#lgrade"), d=$("#ldate"), t=$("#typed");
   if(n) draft.name=n.value; if(g) draft.grade=g.value; if(d) draft.testDate=d.value; if(t) draft.typed=t.value;
 }
@@ -522,6 +612,7 @@ async function parseTyped(){
   }
   if(!draft.name) draft.name="רשימה חדשה";
   render();
+  if(NET) netCheck();
 }
 
 function saveDraft(){
@@ -1068,6 +1159,7 @@ function render(){
   else if(view.name==="practice") app.innerHTML = practiceView();
   else if(view.name==="edit") app.innerHTML = addView();
   const ph = $("#photo"); if(ph) ph.onchange = e => { const f=e.target.files[0]; if(f) readPhoto(f); };
+  const ph2 = $("#photo2"); if(ph2) ph2.onchange = e => { const f=e.target.files[0]; if(f) ocrPhoto(f); };
   const sf = $("#spellform"); if(sf) sf.onsubmit = e => { e.preventDefault(); checkSpell(); };
   const dq = $("#dq"); if(dq) dq.oninput = e => { DQ.q = e.target.value; $("#dres").innerHTML = dictResults(); };
   const gf = $("#gform"); if(gf) gf.onsubmit = e => { e.preventDefault(); const v=$("#gin").value; if(!v.trim()) return; const q=G.qs[G.i]; G.typed=v; gramAnswer(norm(v)===norm(q.answer) || (q.alt||[]).some(a=>norm(a)===norm(v)), v.trim()); };
@@ -1127,6 +1219,8 @@ document.addEventListener("click", e=>{
     draft.origLen = draft.words.length;
     draft.name = all ? `כל המאגר – כיתה ${draft.bankGrade}` : d.topic; draft.grade=draft.bankGrade; draft.testDate=""; return render();
   }
+  if(d.sugacc!==undefined){ syncDraftInputs(); const w=draft.words[+d.sugacc]; w.en=w.sug; const el=$("#en-"+d.sugacc); if(el) el.value=w.en; w.chk=""; w.sug=""; if(w.note && w.note.startsWith("תרגום אוטומטי")){ w.he=""; w.flag=false; w.note=""; } return netCheck(+d.sugacc); }
+  if(d.act==="netcheck") return netCheck();
   if(d.del!==undefined){ syncDraftInputs(); draft.words.splice(+d.del,1); return render(); }
   if(d.pick!==undefined && P){
     const it=P.items[P.i]; if(it.done) return;
