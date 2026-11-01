@@ -206,6 +206,10 @@ textarea{min-height:140px;resize:vertical}
 .g-instr{color:var(--muted);font-weight:700}
 .explain{background:var(--bg);border-radius:10px;padding:10px 12px;text-align:start;font-size:1rem;width:100%;line-height:1.6}
 .hint-btn{background:transparent;color:var(--accent);font-weight:700;padding:2px 6px}
+.settings summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline}
+.settings summary::-webkit-details-marker{display:none}
+.settings summary::after{content:'▾';margin-inline-start:auto;color:var(--accent)}
+.settings[open] summary::after{content:'▴'}
 .back{background:transparent;color:var(--accent);font-weight:700;padding:4px 0}
 </style>
 
@@ -390,16 +394,18 @@ function listView(){
     <div class="meter"><i style="width:${r}%"></i></div>
     ${d!==null&&d>=0&&d<=1?`<div class="note warn">המבחן קרוב. מצב "מבחן" מתמקד במילים שעדיין לא יושבות.</div>`:""}
   </div>
-  <div class="card">
-    <h3>הגדרות התרגול</h3>
-    ${groupBar(l)}
-    ${sizeBar(true,"מילים בסשן")}
-    ${orderBar()}
-  </div>
-  ${Object.keys(uniqIssues(l.words)).length?`<div class="note warn">ברשימה יש פירוש בעברית ששייך לשתי מילים. כדאי לתקן ב"עריכה" כדי שבתרגול לא יהיו שתי תשובות נכונות.</div>`:""}
   <h3>במה מתרגלים?</h3>
   ${trouble(l).length?`<button class="kids-entry focus-entry" data-mode="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק טעויות · ${trouble(l).length} מילים</b>מילים שטעית בהן. כל מילה מתורגלת ברמה שמתאימה לה, ויוצאת מהרשימה כשהיא יושבת.</span></button>`:""}
   <div class="modes">${modes}</div>
+  ${Object.keys(uniqIssues(l.words)).length?`<div class="note warn">ברשימה יש פירוש בעברית ששייך לשתי מילים. כדאי לתקן ב"עריכה" כדי שבתרגול לא יהיו שתי תשובות נכונות.</div>`:""}
+  <details class="card settings" id="setbox" ${OPEN_SET?"open":""}>
+    <summary><b>הגדרות התרגול</b> <span class="muted">${(()=>{ const gs=groupsOf(l); const grp = mixActive(l)?"ערבוב קבוצות": typeof l.sel==="number"&&gs[l.sel]?gs[l.sel].label:"כל המילים"; const sz = state.prefs.size==="all"?"כל המילים":state.prefs.size+" מילים"; const od={weak:"קודם החלשות",random:"אקראי",seq:"לפי הסדר"}[state.prefs.order]; return `${esc(grp)} · ${sz} · ${od}`; })()}</span></summary>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:10px">
+    ${groupBar(l)}
+    ${sizeBar(true,"מילים בסשן")}
+    ${orderBar()}
+    </div>
+  </details>
   <div class="card"><div class="row spread"><h3>${pool.length<l.words.length?`המילים שנבחרו (${pool.length})`:`המילים ברשימה (${l.words.length})`}</h3><button class="btn small soft" data-act="edit">עריכה</button></div>
   <div class="words">${rows}</div></div>
   <button class="btn ghost small" data-act="delete-ask">מחיקת הרשימה</button>
@@ -698,6 +704,7 @@ function saveDraft(){
 }
 
 /* ---------- session settings & groups ---------- */
+let OPEN_SET = false;
 const GSIZE = 10;
 let MIX = {id:null, set:new Set()};
 const readinessW = ws => ws.length ? Math.round(ws.reduce((a,w)=>a+w.box,0)/(MAXBOX*ws.length)*100) : 0;
@@ -1240,6 +1247,8 @@ function render(){
 }
 
 document.addEventListener("click", e=>{
+  if(e.target.closest("#setbox")) OPEN_SET = true; else if(!e.target.closest("[data-mode]")) OPEN_SET = OPEN_SET && view.name==="list";
+  const sb=$("#setbox"); if(sb && e.target.closest("#setbox summary")) { OPEN_SET = !sb.open; return; }
   const t = e.target.closest("button,[data-open]"); if(!t) return;
   const d = t.dataset;
   if(d.tab) return go({name:d.tab});
