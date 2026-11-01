@@ -426,20 +426,50 @@ function setGrade(g){
 /* ---------- internet spelling, translation and photo reading (website only) ---------- */
 const NET = !window.claude;   // inside Claude the page can't reach other sites
 async function getJSON(url){ const r = await fetch(url); if(!r.ok) throw new Error(r.status); return r.json(); }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
 async function inDict(w){
-  const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`);
-  if(r.status===404) return false;
-  if(!r.ok) throw new Error(r.status);
-  return true;
+  for(let a=0;a<3;a++){
+    try{ const r = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(w)}`); if(r.status===404) return false; if(r.ok) return true; }catch(e){}
+    await sleep(800*(a+1));
+  }
+  throw new Error("dictionary unavailable");
+}
+function dist(a,b){ // edit distance with adjacent swaps
+  const d=Array.from({length:a.length+1},(_,i)=>Array.from({length:b.length+1},(_,j)=>i?(j?0:i):j));
+  for(let i=1;i<=a.length;i++) for(let j=1;j<=b.length;j++){
+    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
+    if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1]) d[i][j]=Math.min(d[i][j],d[i-2][j-2]+1);
+  }
+  return d[a.length][b.length];
+}
+async function freq(w){
+  try{ const j = await getJSON(`https://api.datamuse.com/words?sp=${encodeURIComponent(w)}&md=f&max=1`);
+    const x=j[0]; if(!x || x.word.toLowerCase()!==w) return 0;
+    const t=(x.tags||[]).find(t=>t.startsWith("f:")); return t?parseFloat(t.slice(2)):0; }catch(e){ return 0; }
+}
+async function suggest(w){
+  const [sp,sg] = await Promise.all([getJSON(`https://api.datamuse.com/words?sp=${encodeURIComponent(w)}&max=10`), getJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(w)}&max=10`)]);
+  const c = new Set();
+  for(let i=0;i<w.length-1;i++) c.add(w.slice(0,i)+w[i+1]+w[i]+w.slice(i+2));   // swapped letters (freind → friend)
+  [...sp,...sg].forEach(x=>c.add(x.word.toLowerCase()));
+  c.delete(w);
+  const arr=[...c].filter(x=>/^[a-z'-]+$/.test(x)).map(x=>({x,d:dist(w,x)})).filter(o=>o.d<=2).sort((a,b)=>a.d-b.d);
+  if(!arr.length) return "";
+  const top = arr.filter(o=>o.d===arr[0].d).slice(0,12);
+  const fs = await Promise.all(top.map(o=>freq(o.x)));
+  let best="", bf=0; fs.forEach((f,i)=>{ if(f>bf){ bf=f; best=top[i].x; } });
+  return best;
 }
 async function spellCheck(word){
-  const w = word.trim().toLowerCase().replace(/\s+/g," ");
-  let ok = true;
-  for(const part of w.split(" ")){ if(!(await inDict(part))){ ok=false; break; } }
-  if(ok) return {chk:"ok"};
-  const sug = await getJSON(`https://api.datamuse.com/sug?s=${encodeURIComponent(w)}&max=6`);
-  const alt = sug.map(x=>x.word.toLowerCase()).find(x=>x!==w);
-  return alt ? {chk:"sug", sug:alt} : {chk:"bad"};
+  const parts = word.trim().toLowerCase().replace(/\s+/g," ").split(" ");
+  let changed=false, unknown=false; const fixed=[];
+  for(const part of parts){
+    if(await inDict(part)){ fixed.push(part); continue; }
+    const s2 = await suggest(part);
+    if(s2){ fixed.push(s2); changed=true; } else { fixed.push(part); unknown=true; }
+  }
+  if(!changed && !unknown) return {chk:"ok"};
+  return changed ? {chk:"sug", sug:fixed.join(" ")} : {chk:"bad"};
 }
 async function translateHe(word){
   const j = await getJSON(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|he`);
@@ -456,7 +486,7 @@ async function netCheck(onlyIdx){
   todo.forEach(w=>w.chk="busy");
   let done=0; draft.err=""; draft.busy=`בודק איות ותרגום באינטרנט... 0/${todo.length}`; render();
   let failed=false;
-  await pool(todo, 4, async w=>{
+  await pool(todo, 2, async w=>{
     try{
       const r = await spellCheck(w.en); w.chk=r.chk; w.sug=r.sug||"";
       if(r.chk==="ok" && !w.he){ const t = await translateHe(w.en); if(t){ w.he=t; w.flag=true; w.note="תרגום אוטומטי מהאינטרנט. כדאי לוודא שזו המשמעות שהמורה לימדה."; } }
