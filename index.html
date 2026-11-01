@@ -369,6 +369,8 @@ function homeView(){
 
 function listView(){
   const l = state.lists.find(x=>x.id===view.id); if(!l) return go({name:"home"});
+  if(!state.lastList) state.lastList = {};
+  if(state.lastList[state.grade]!==l.id){ state.lastList[state.grade]=l.id; save(); }
   const r = readiness(l), d = daysTo(l.testDate);
   const rec = d!==null && d>=0 && d<=1 ? "test" : (r<40 ? "learn" : r<75 ? "reverse" : "spell");
   const modes = [
@@ -380,7 +382,7 @@ function listView(){
   const pool = activePool(l);
   const rows = pool.slice().sort((a,b)=>a.box-b.box).map(w=>`<div class="word-row">
     <span class="en">${esc(w.en)}</span><span>${esc(w.he)}</span>${dots(w.box)}</div>`).join("");
-  return `<button class="back" data-act="home">→ חזרה לרשימות</button>
+  return `<div class="row spread"><button class="back" data-act="home">→ לכל האפשרויות</button><button class="grade-chip" data-act="grade" aria-label="חזרה למסך הראשי">כיתה ${esc(state.grade||"")} <span>מסך ראשי</span></button></div>
   <div class="card">
     <div class="row spread"><h2>${esc(l.name)}</h2>${l.example?'<span class="pill marker">דוגמה</span>':""}</div>
     <div class="row"><span class="pill">כיתה ${esc(l.grade||"")}</span><span class="pill">${dueLabel(l.testDate)||"בלי תאריך מבחן"}</span></div>
@@ -422,7 +424,11 @@ function setGrade(g){
   // swap the untouched example list to the chosen grade
   const ex = state.lists.findIndex(l=>l.example && l.untouched);
   if(ex>-1) state.lists[ex] = exampleList(g);
-  save(); go({name:"home"});
+  save();
+  // go straight to practice: the list used last in this grade, else the nearest test
+  const mine = myLists(), last = (state.lastList||{})[g];
+  const pickL = mine.find(l=>l.id===last) || mine.slice().sort((a,b)=>{ const da=daysTo(a.testDate), db=daysTo(b.testDate); const k=d=>d===null?999:(d<0?500-d:d); return k(da)-k(db); })[0];
+  go(pickL ? {name:"list", id:pickL.id} : {name:"home"});
 }
 
 /* ---------- internet spelling, translation and photo reading (website only) ---------- */
