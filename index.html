@@ -800,6 +800,15 @@ function startPractice(mode){
   go({name:"practice", id:l.id});
   setTimeout(autoSpeak, 250);
 }
+// correct answer: say it in Hebrew and English, then move on by itself
+function autoNext(it){
+  const he = heList(it.w.he).join(", ");
+  speakSeq([[he,"he"],[it.w.en,"en"]]).then(()=>{
+    if(!P || P.items[P.i]!==it || view.name!=="practice") return;
+    P.i++; P.feedback=""; P.fbClass=""; render();
+    setTimeout(()=>{ autoSpeak(); focusSpell(); }, 150);
+  });
+}
 function autoSpeak(){ if(!P) return; const it=P.items[P.i]; if(it && (it.m==="learn"||it.m==="spell")) say(it.w.en); }
 function grade(it, ok){
   const w = it.w;
@@ -838,7 +847,7 @@ function practiceView(){
   <div class="progress"><span class="num muted">${P.i+1}/${P.items.length}</span><div class="meter"><i style="width:${pct}%"></i></div></div>
   <div class="card"><div class="q">${q}
     <div class="feedback ${P.fbClass}" aria-live="polite">${P.feedback}</div>
-    ${it.done?`<button class="btn" data-act="next" id="nextbtn">${P.i+1<P.items.length?"הבא":"לסיכום"}</button>`:""}
+    ${it.done && !it.ok ? `<button class="btn" data-act="next" id="nextbtn">${P.i+1<P.items.length?"הבא":"לסיכום"}</button>` : ""}
   </div></div>`;
 }
 
@@ -861,7 +870,7 @@ function checkSpell(){
   if(!v.trim()) return;
   const ok = norm(v)===norm(it.w.en);
   it.tries++;
-  if(ok){ grade(it,true); it.diff=letterDiff(v,it.w.en); P.feedback="מצוין! נכון."; P.fbClass="good"; say(it.w.en); }
+  if(ok){ grade(it,true); it.diff=letterDiff(v,it.w.en); P.feedback="מצוין! נכון."; P.fbClass="good"; render(); autoNext(it); return; }
   else if(it.m==="spell" && it.tries<2){ it.diff=letterDiff(v,it.w.en); P.feedback="כמעט. האותיות באדום לא במקום. נסו שוב."; P.fbClass="bad"; it.typed=""; }
   else { it.w.miss = v.trim(); grade(it,false); it.diff=letterDiff(it.w.en,it.w.en); P.feedback=`התשובה הנכונה: ${esc(it.w.en)}`; P.fbClass="bad"; say(it.w.en); }
   render(); focusSpell();
@@ -1336,8 +1345,10 @@ document.addEventListener("click", e=>{
     const val = it.opts[+d.pick], target = it.m==="learn"?it.w.he:it.w.en;
     it.pick=+d.pick; const ok = val===target; grade(it, ok);
     P.feedback = ok ? "נכון!" : `לא בדיוק. התשובה: ${esc(target)}`; P.fbClass = ok?"good":"bad";
+    render();
+    if(ok) return autoNext(it);
     if(it.m==="reverse") say(it.w.en);
-    render(); const n=$("#nextbtn"); if(n) n.focus(); return;
+    const n=$("#nextbtn"); if(n) n.focus(); return;
   }
   switch(d.act){
     case "home": draft=null; return go({name:"home"});
