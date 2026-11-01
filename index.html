@@ -168,6 +168,20 @@ textarea{min-height:140px;resize:vertical}
 .k-done .trophy{font-size:5.5rem;animation:pop .6s}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
 @keyframes pop{0%{transform:scale(.85)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+.setrow{display:flex;flex-direction:column;gap:6px}
+.setrow>.muted{font-size:.9rem;font-weight:700}
+.seg button .muted{font-weight:600;font-size:.85rem}
+.seg.small{gap:5px}
+.seg.small button{padding:5px 9px;font-size:.86rem;border-radius:10px}
+.gram-entry{background:var(--accent-soft);color:var(--ink)}
+.g-mod{justify-content:flex-start;gap:12px}
+.g-ic{font-size:1.9rem;line-height:1}
+.blank{display:inline-block;min-width:2.6em;border-bottom:3px solid var(--accent);color:var(--accent);text-align:center;line-height:1.1}
+.g-prompt{font-family:var(--en);direction:ltr;unicode-bidi:isolate;font-size:1.45rem;font-weight:500;line-height:1.55;text-align:center;word-break:break-word}
+.g-prompt.big{font-size:2.2rem;font-weight:600}
+.g-instr{color:var(--muted);font-weight:700}
+.explain{background:var(--bg);border-radius:10px;padding:10px 12px;text-align:start;font-size:1rem;width:100%;line-height:1.6}
+.hint-btn{background:transparent;color:var(--accent);font-weight:700;padding:2px 6px}
 .back{background:transparent;color:var(--accent);font-weight:700;padding:4px 0}
 </style>
 
@@ -178,11 +192,12 @@ textarea{min-height:140px;resize:vertical}
 <script>
 (() => {
 /* ---------- built-in word banks (curated, by grade) ---------- */
-const BANK = {"ד'": {"בית ומשפחה": [["mother","אמא"],["father","אבא"],["sister","אחות"],["brother","אח"],["baby","תינוק"],["grandmother","סבתא"],["grandfather","סבא"],["family","משפחה"],["house","בית"],["room","חדר"],["door","דלת"],["window","חלון"],["bed","מיטה"],["table","שולחן"],["chair","כיסא"],["kitchen","מטבח"],["garden","גינה"],["cat","חתול"],["dog","כלב"],["bird","ציפור"]],"בית ספר": [["school","בית ספר"],["teacher","מורה"],["pupil","תלמיד"],["class","כיתה"],["book","ספר"],["pen","עט"],["pencil","עיפרון"],["bag","תיק"],["desk","שולחן כתיבה"],["ruler","סרגל"],["eraser","מחק"],["notebook","מחברת"],["board","לוח"],["friend","חבר"],["read","לקרוא"],["write","לכתוב"],["draw","לצייר"],["count","לספור"],["listen","להקשיב"],["play","לשחק"]],"צבעים ומספרים": [["red","אדום"],["blue","כחול"],["green","ירוק"],["yellow","צהוב"],["black","שחור"],["white","לבן"],["orange","כתום"],["pink","ורוד"],["brown","חום"],["purple","סגול"],["one","אחת"],["two","שתיים"],["three","שלוש"],["four","ארבע"],["five","חמש"],["six","שש"],["seven","שבע"],["eight","שמונה"],["nine","תשע"],["ten","עשר"]],"אוכל, גוף ורגשות": [["apple","תפוח"],["banana","בננה"],["bread","לחם"],["milk","חלב"],["water","מים"],["egg","ביצה"],["cake","עוגה"],["cheese","גבינה"],["juice","מיץ"],["fish","דג"],["head","ראש"],["hand","יד"],["eye","עין"],["ear","אוזן"],["nose","אף"],["mouth","פה"],["leg","רגל"],["hair","שיער"],["happy","שמח"],["sad","עצוב"]]},"ה'": {"שגרה יומית": [["morning","בוקר"],["evening","ערב"],["night","לילה"],["today","היום"],["tomorrow","מחר"],["yesterday","אתמול"],["breakfast","ארוחת בוקר"],["lunch","ארוחת צהריים"],["dinner","ארוחת ערב"],["wake up","להתעורר"],["get dressed","להתלבש"],["brush","לצחצח"],["wash","לשטוף"],["always","תמיד"],["usually","בדרך כלל"],["sometimes","לפעמים"],["never","אף פעם"],["early","מוקדם"],["late","מאוחר"],["homework","שיעורי בית"]],"מקומות בעיר": [["city","עיר"],["street","רחוב"],["park","פארק"],["shop","חנות"],["market","שוק"],["library","ספרייה"],["hospital","בית חולים"],["bank","בנק"],["restaurant","מסעדה"],["zoo","גן חיות"],["beach","חוף ים"],["station","תחנה"],["bus","אוטובוס"],["train","רכבת"],["car","מכונית"],["bicycle","אופניים"],["near","קרוב"],["far","רחוק"],["left","שמאלה"],["right","ימינה"]],"תחביבים ופנאי": [["hobby","תחביב"],["game","משחק"],["football","כדורגל"],["swim","לשחות"],["dance","לרקוד"],["sing","לשיר"],["ride","לרכוב"],["cook","לבשל"],["music","מוזיקה"],["movie","סרט"],["picture","תמונה"],["ball","כדור"],["team","קבוצה"],["win","לנצח"],["lose","להפסיד"],["fun","כיף"],["favorite","אהוב"],["weekend","סוף שבוע"],["holiday","חופשה"],["party","מסיבה"]],"מזג אוויר וטבע": [["weather","מזג אוויר"],["sun","שמש"],["rain","גשם"],["wind","רוח"],["cloud","ענן"],["snow","שלג"],["hot","חם"],["cold","קר"],["warm","חמים"],["cool","קריר"],["summer","קיץ"],["winter","חורף"],["spring","אביב"],["autumn","סתיו"],["sky","שמיים"],["tree","עץ"],["flower","פרח"],["sea","ים"],["mountain","הר"],["river","נהר"]]},"ו'": {"פעלים חשובים": [["believe","להאמין"],["borrow","לשאול (חפץ)"],["choose","לבחור"],["decide","להחליט"],["explain","להסביר"],["forget","לשכוח"],["remember","לזכור"],["understand","להבין"],["return","להחזיר"],["arrive","להגיע"],["leave","לעזוב"],["carry","לסחוב"],["build","לבנות"],["break","לשבור"],["catch","לתפוס"],["follow","לעקוב"],["hide","להסתתר"],["laugh","לצחוק"],["cry","לבכות"],["travel","לטייל"]],"רגשות ותכונות": [["angry","כועס"],["afraid","מפחד"],["tired","עייף"],["hungry","רעב"],["thirsty","צמא"],["bored","משועמם"],["excited","נרגש"],["proud","גאה"],["worried","מודאג"],["surprised","מופתע"],["kind","אדיב"],["brave","אמיץ"],["funny","מצחיק"],["clever","חכם"],["lazy","עצלן"],["honest","ישר"],["shy","ביישן"],["polite","מנומס"],["quiet","שקט"],["friendly","ידידותי"]],"טיולים והרפתקאות": [["adventure","הרפתקה"],["journey","מסע"],["trip","טיול"],["map","מפה"],["ticket","כרטיס"],["suitcase","מזוודה"],["passport","דרכון"],["airport","שדה תעופה"],["hotel","מלון"],["tent","אוהל"],["forest","יער"],["desert","מדבר"],["island","אי"],["village","כפר"],["country","ארץ"],["world","עולם"],["road","כביש"],["bridge","גשר"],["dangerous","מסוכן"],["safe","בטוח"]],"בריאות וגוף": [["healthy","בריא"],["sick","חולה"],["doctor","רופא"],["nurse","אחות (בבית חולים)"],["medicine","תרופה"],["pain","כאב"],["headache","כאב ראש"],["fever","חום (מחלה)"],["heart","לב"],["blood","דם"],["bone","עצם"],["tooth","שן"],["skin","עור"],["exercise","להתאמן"],["sleep","לישון"],["rest","לנוח"],["strong","חזק"],["weak","חלש"],["accident","תאונה"],["habit","הרגל"]]},"ז'": {"לימודים ובית ספר": [["subject","מקצוע לימוד"],["history","היסטוריה"],["science","מדעים"],["mathematics","מתמטיקה"],["geography","גאוגרפיה"],["language","שפה"],["lesson","שיעור"],["exam","מבחן"],["grade","ציון"],["question","שאלה"],["answer","תשובה"],["mistake","טעות"],["practice","לתרגל"],["improve","לשפר"],["succeed","להצליח"],["fail","להיכשל"],["knowledge","ידע"],["research","מחקר"],["project","פרויקט"],["example","דוגמה"]],"תקשורת ודעות": [["opinion","דעה"],["agree","להסכים"],["disagree","לא להסכים"],["argue","להתווכח"],["discuss","לדון"],["suggest","להציע"],["advice","עצה"],["message","הודעה"],["conversation","שיחה"],["describe","לתאר"],["mention","להזכיר"],["complain","להתלונן"],["promise","להבטיח"],["apologize","להתנצל"],["invite","להזמין"],["reply","להשיב"],["whisper","ללחוש"],["shout","לצעוק"],["truth","אמת"],["secret","סוד"]],"טבע וסביבה": [["environment","סביבה"],["nature","טבע"],["pollution","זיהום"],["recycle","למחזר"],["energy","אנרגיה"],["planet","כוכב לכת"],["ocean","אוקיינוס"],["climate","אקלים"],["temperature","טמפרטורה"],["protect","להגן"],["plant","צמח"],["animal","בעל חיים"],["insect","חרק"],["wild","פראי"],["rare","נדיר"],["disappear","להיעלם"],["waste","פסולת"],["clean","נקי"],["dirty","מלוכלך"],["future","עתיד"]],"אנשים ויחסים": [["neighbor","שכן"],["relative","קרוב משפחה"],["stranger","זר"],["guest","אורח"],["crowd","קהל"],["leader","מנהיג"],["member","חבר (בקבוצה)"],["partner","שותף"],["relationship","קשר"],["trust","אמון"],["respect","כבוד"],["share","לשתף"],["support","לתמוך"],["care","לדאוג"],["fight","לריב"],["forgive","לסלוח"],["lonely","בודד"],["popular","פופולרי"],["generous","נדיב"],["jealous","מקנא"]]},"ח'": {"פעלים אקדמיים": [["achieve","להשיג"],["avoid","להימנע"],["compare","להשוות"],["consider","לשקול"],["prevent","למנוע"],["increase","להגדיל"],["reduce","להקטין"],["include","לכלול"],["require","לדרוש"],["provide","לספק"],["develop","לפתח"],["create","ליצור"],["discover","לגלות"],["examine","לבחון"],["identify","לזהות"],["predict","לחזות"],["solve","לפתור"],["replace","להחליף"],["affect","להשפיע על"],["prove","להוכיח"]],"מושגים ורעיונות": [["benefit","תועלת"],["advantage","יתרון"],["disadvantage","חיסרון"],["purpose","מטרה"],["reason","סיבה"],["result","תוצאה"],["cause","גורם"],["effect","השפעה"],["solution","פתרון"],["situation","מצב"],["method","שיטה"],["process","תהליך"],["evidence","ראיה"],["fact","עובדה"],["idea","רעיון"],["attitude","גישה"],["quality","איכות"],["amount","כמות"],["importance","חשיבות"],["success","הצלחה"]],"תיאורים ותכונות": [["ancient","עתיק"],["modern","מודרני"],["common","נפוץ"],["unusual","יוצא דופן"],["necessary","הכרחי"],["possible","אפשרי"],["impossible","בלתי אפשרי"],["similar","דומה"],["obvious","ברור מאליו"],["serious","רציני"],["positive","חיובי"],["negative","שלילי"],["huge","ענק"],["tiny","זעיר"],["average","ממוצע"],["complete","שלם"],["confident","בטוח בעצמו"],["curious","סקרן"],["independent","עצמאי"],["responsible","אחראי"]],"חברה וטכנולוגיה": [["society","חברה (קהילת אנשים)"],["government","ממשלה"],["law","חוק"],["citizen","אזרח"],["community","קהילה"],["culture","תרבות"],["tradition","מסורת"],["population","אוכלוסייה"],["technology","טכנולוגיה"],["device","מכשיר"],["invention","המצאה"],["screen","מסך"],["internet","אינטרנט"],["information","מידע"],["connect","לחבר"],["download","להוריד (קובץ)"],["equal","שווה"],["freedom","חופש"],["war","מלחמה"],["peace","שלום"]]}};
+const BANK = {"ד'": {"בית ומשפחה": [["mother", "אמא"], ["father", "אבא"], ["sister", "אחות"], ["brother", "אח"], ["baby", "תינוק"], ["grandmother", "סבתא"], ["grandfather", "סבא"], ["family", "משפחה"], ["house", "בית"], ["room", "חדר"], ["door", "דלת"], ["window", "חלון"], ["bed", "מיטה"], ["table", "שולחן"], ["chair", "כיסא"], ["kitchen", "מטבח"], ["garden", "גינה"], ["cat", "חתול"], ["dog", "כלב"], ["bird", "ציפור"]], "בית ספר": [["school", "בית ספר"], ["teacher", "מורה"], ["pupil", "תלמיד"], ["class", "כיתה"], ["book", "ספר"], ["pen", "עט"], ["pencil", "עיפרון"], ["bag", "תיק"], ["desk", "שולחן כתיבה"], ["ruler", "סרגל"], ["eraser", "מחק"], ["notebook", "מחברת"], ["board", "לוח"], ["friend", "חבר"], ["read", "לקרוא"], ["write", "לכתוב"], ["draw", "לצייר"], ["count", "לספור"], ["listen", "להקשיב"], ["play", "לשחק"]], "צבעים ומספרים": [["red", "אדום"], ["blue", "כחול"], ["green", "ירוק"], ["yellow", "צהוב"], ["black", "שחור"], ["white", "לבן"], ["orange", "כתום"], ["pink", "ורוד"], ["brown", "חום"], ["purple", "סגול"], ["one", "אחת"], ["two", "שתיים"], ["three", "שלוש"], ["four", "ארבע"], ["five", "חמש"], ["six", "שש"], ["seven", "שבע"], ["eight", "שמונה"], ["nine", "תשע"], ["ten", "עשר"]], "אוכל, גוף ורגשות": [["apple", "תפוח"], ["banana", "בננה"], ["bread", "לחם"], ["milk", "חלב"], ["water", "מים"], ["egg", "ביצה"], ["cake", "עוגה"], ["cheese", "גבינה"], ["juice", "מיץ"], ["fish", "דג"], ["head", "ראש"], ["hand", "יד"], ["eye", "עין"], ["ear", "אוזן"], ["nose", "אף"], ["mouth", "פה"], ["leg", "רגל"], ["hair", "שיער"], ["happy", "שמח"], ["sad", "עצוב"]], "בגדים": [["shirt", "חולצה"], ["pants", "מכנסיים"], ["dress", "שמלה"], ["skirt", "חצאית"], ["shoes", "נעליים"], ["socks", "גרביים"], ["hat", "כובע"], ["coat", "מעיל"], ["jacket", "ז'קט"], ["sweater", "סוודר"], ["scarf", "צעיף"], ["gloves", "כפפות"], ["boots", "מגפיים"], ["pajamas", "פיג'מה"], ["belt", "חגורה"], ["glasses", "משקפיים"], ["umbrella", "מטרייה"], ["watch", "שעון יד"], ["ring", "טבעת"], ["button", "כפתור"]], "חיות": [["cow", "פרה"], ["horse", "סוס"], ["sheep", "כבשה"], ["pig", "חזיר"], ["chicken", "תרנגולת"], ["duck", "ברווז"], ["rabbit", "ארנב"], ["mouse", "עכבר"], ["lion", "אריה"], ["tiger", "נמר"], ["elephant", "פיל"], ["monkey", "קוף"], ["bear", "דוב"], ["snake", "נחש"], ["frog", "צפרדע"], ["turtle", "צב"], ["giraffe", "ג'ירפה"], ["zebra", "זברה"], ["camel", "גמל"], ["bee", "דבורה"]], "פעלים ראשונים": [["run", "לרוץ"], ["jump", "לקפוץ"], ["walk", "ללכת"], ["sit", "לשבת"], ["stand", "לעמוד"], ["eat", "לאכול"], ["drink", "לשתות"], ["sleep", "לישון"], ["swim", "לשחות"], ["sing", "לשיר"], ["dance", "לרקוד"], ["open", "לפתוח"], ["close", "לסגור"], ["look", "להסתכל"], ["see", "לראות"], ["give", "לתת"], ["take", "לקחת"], ["come", "לבוא"], ["like", "לאהוב"], ["want", "לרצות"]]}, "ה'": {"שגרה יומית": [["morning", "בוקר"], ["evening", "ערב"], ["night", "לילה"], ["today", "היום"], ["tomorrow", "מחר"], ["yesterday", "אתמול"], ["breakfast", "ארוחת בוקר"], ["lunch", "ארוחת צהריים"], ["dinner", "ארוחת ערב"], ["wake up", "להתעורר"], ["get dressed", "להתלבש"], ["brush", "לצחצח"], ["wash", "לשטוף"], ["always", "תמיד"], ["usually", "בדרך כלל"], ["sometimes", "לפעמים"], ["never", "אף פעם"], ["early", "מוקדם"], ["late", "מאוחר"], ["homework", "שיעורי בית"]], "מקומות בעיר": [["city", "עיר"], ["street", "רחוב"], ["park", "פארק"], ["shop", "חנות"], ["market", "שוק"], ["library", "ספרייה"], ["hospital", "בית חולים"], ["bank", "בנק"], ["restaurant", "מסעדה"], ["zoo", "גן חיות"], ["beach", "חוף ים"], ["station", "תחנה"], ["bus", "אוטובוס"], ["train", "רכבת"], ["car", "מכונית"], ["bicycle", "אופניים"], ["near", "קרוב"], ["far", "רחוק"], ["left", "שמאלה"], ["right", "ימינה"]], "תחביבים ופנאי": [["hobby", "תחביב"], ["game", "משחק"], ["football", "כדורגל"], ["swim", "לשחות"], ["dance", "לרקוד"], ["sing", "לשיר"], ["ride", "לרכוב"], ["cook", "לבשל"], ["music", "מוזיקה"], ["movie", "סרט"], ["picture", "תמונה"], ["ball", "כדור"], ["team", "קבוצה"], ["win", "לנצח"], ["lose", "להפסיד"], ["fun", "כיף"], ["favorite", "אהוב"], ["weekend", "סוף שבוע"], ["holiday", "חופשה"], ["party", "מסיבה"]], "מזג אוויר וטבע": [["weather", "מזג אוויר"], ["sun", "שמש"], ["rain", "גשם"], ["wind", "רוח"], ["cloud", "ענן"], ["snow", "שלג"], ["hot", "חם"], ["cold", "קר"], ["warm", "חמים"], ["cool", "קריר"], ["summer", "קיץ"], ["winter", "חורף"], ["spring", "אביב"], ["autumn", "סתיו"], ["sky", "שמיים"], ["tree", "עץ"], ["flower", "פרח"], ["sea", "ים"], ["mountain", "הר"], ["river", "נהר"]], "בבית ובמטבח": [["living room", "סלון"], ["bedroom", "חדר שינה"], ["bathroom", "חדר אמבטיה"], ["refrigerator", "מקרר"], ["oven", "תנור"], ["sink", "כיור"], ["plate", "צלחת"], ["cup", "כוס"], ["fork", "מזלג"], ["knife", "סכין"], ["spoon", "כף"], ["bottle", "בקבוק"], ["sofa", "ספה"], ["shelf", "מדף"], ["lamp", "מנורה"], ["mirror", "מראה"], ["carpet", "שטיח"], ["stairs", "מדרגות"], ["roof", "גג"], ["wall", "קיר"]], "עבודות ומקצועות": [["job", "עבודה"], ["work", "לעבוד"], ["police officer", "שוטר"], ["firefighter", "כבאי"], ["driver", "נהג"], ["farmer", "חקלאי"], ["chef", "שף"], ["pilot", "טייס"], ["dentist", "רופא שיניים"], ["vet", "וטרינר"], ["singer", "זמר"], ["actor", "שחקן"], ["artist", "אמן"], ["writer", "סופר"], ["engineer", "מהנדס"], ["soldier", "חייל"], ["scientist", "מדען"], ["waiter", "מלצר"], ["office", "משרד"], ["money", "כסף"]], "תארים שימושיים": [["beautiful", "יפה"], ["ugly", "מכוער"], ["new", "חדש"], ["old", "ישן"], ["young", "צעיר"], ["tall", "גבוה"], ["short", "נמוך"], ["long", "ארוך"], ["fast", "מהיר"], ["slow", "איטי"], ["easy", "קל"], ["difficult", "קשה"], ["cheap", "זול"], ["expensive", "יקר"], ["full", "מלא"], ["empty", "ריק"], ["heavy", "כבד"], ["light", "קל (במשקל)"], ["loud", "רועש"], ["different", "שונה"]]}, "ו'": {"פעלים חשובים": [["believe", "להאמין"], ["borrow", "לשאול (חפץ)"], ["choose", "לבחור"], ["decide", "להחליט"], ["explain", "להסביר"], ["forget", "לשכוח"], ["remember", "לזכור"], ["understand", "להבין"], ["return", "להחזיר"], ["arrive", "להגיע"], ["leave", "לעזוב"], ["carry", "לסחוב"], ["build", "לבנות"], ["break", "לשבור"], ["catch", "לתפוס"], ["follow", "לעקוב"], ["hide", "להסתתר"], ["laugh", "לצחוק"], ["cry", "לבכות"], ["travel", "לטייל"]], "רגשות ותכונות": [["angry", "כועס"], ["afraid", "מפחד"], ["tired", "עייף"], ["hungry", "רעב"], ["thirsty", "צמא"], ["bored", "משועמם"], ["excited", "נרגש"], ["proud", "גאה"], ["worried", "מודאג"], ["surprised", "מופתע"], ["kind", "אדיב"], ["brave", "אמיץ"], ["funny", "מצחיק"], ["clever", "חכם"], ["lazy", "עצלן"], ["honest", "ישר"], ["shy", "ביישן"], ["polite", "מנומס"], ["quiet", "שקט"], ["friendly", "ידידותי"]], "טיולים והרפתקאות": [["adventure", "הרפתקה"], ["journey", "מסע"], ["trip", "טיול"], ["map", "מפה"], ["ticket", "כרטיס"], ["suitcase", "מזוודה"], ["passport", "דרכון"], ["airport", "שדה תעופה"], ["hotel", "מלון"], ["tent", "אוהל"], ["forest", "יער"], ["desert", "מדבר"], ["island", "אי"], ["village", "כפר"], ["country", "ארץ"], ["world", "עולם"], ["road", "כביש"], ["bridge", "גשר"], ["dangerous", "מסוכן"], ["safe", "בטוח"]], "בריאות וגוף": [["healthy", "בריא"], ["sick", "חולה"], ["doctor", "רופא"], ["nurse", "אחות (בבית חולים)"], ["medicine", "תרופה"], ["pain", "כאב"], ["headache", "כאב ראש"], ["fever", "חום (מחלה)"], ["heart", "לב"], ["blood", "דם"], ["bone", "עצם"], ["tooth", "שן"], ["skin", "עור"], ["exercise", "להתאמן"], ["sleep", "לישון"], ["rest", "לנוח"], ["strong", "חזק"], ["weak", "חלש"], ["accident", "תאונה"], ["habit", "הרגל"]], "מחשבים ותקשורת": [["computer", "מחשב"], ["keyboard", "מקלדת"], ["password", "סיסמה"], ["website", "אתר אינטרנט"], ["email", "דואר אלקטרוני"], ["video", "סרטון"], ["photo", "תמונה"], ["camera", "מצלמה"], ["app", "אפליקציה"], ["online", "מקוון"], ["print", "להדפיס"], ["send", "לשלוח"], ["search", "לחפש"], ["click", "ללחוץ (בעכבר)"], ["type", "להקליד"], ["save", "לשמור"], ["delete", "למחוק"], ["upload", "להעלות (קובץ)"], ["battery", "סוללה"], ["charger", "מטען"]], "אוכל ומסעדה": [["menu", "תפריט"], ["order", "להזמין"], ["bill", "חשבון"], ["delicious", "טעים"], ["sweet", "מתוק"], ["salty", "מלוח"], ["sour", "חמוץ"], ["bitter", "מר"], ["spicy", "חריף"], ["vegetable", "ירק"], ["fruit", "פרי"], ["meat", "בשר"], ["salad", "סלט"], ["soup", "מרק"], ["rice", "אורז"], ["sandwich", "כריך"], ["dessert", "קינוח"], ["recipe", "מתכון"], ["taste", "לטעום"], ["pepper", "פלפל"]], "זמן ותדירות": [["minute", "דקה"], ["hour", "שעה"], ["second", "שנייה"], ["week", "שבוע"], ["month", "חודש"], ["year", "שנה"], ["century", "מאה (שנים)"], ["birthday", "יום הולדת"], ["calendar", "לוח שנה"], ["date", "תאריך"], ["often", "לעיתים קרובות"], ["rarely", "לעיתים רחוקות"], ["already", "כבר"], ["still", "עדיין"], ["soon", "בקרוב"], ["later", "מאוחר יותר"], ["before", "לפני"], ["after", "אחרי"], ["during", "במהלך"], ["until", "עד"]]}, "ז'": {"לימודים ובית ספר": [["subject", "מקצוע לימוד"], ["history", "היסטוריה"], ["science", "מדעים"], ["mathematics", "מתמטיקה"], ["geography", "גאוגרפיה"], ["language", "שפה"], ["lesson", "שיעור"], ["exam", "מבחן"], ["grade", "ציון"], ["question", "שאלה"], ["answer", "תשובה"], ["mistake", "טעות"], ["practice", "לתרגל"], ["improve", "לשפר"], ["succeed", "להצליח"], ["fail", "להיכשל"], ["knowledge", "ידע"], ["research", "מחקר"], ["project", "פרויקט"], ["example", "דוגמה"]], "תקשורת ודעות": [["opinion", "דעה"], ["agree", "להסכים"], ["disagree", "לא להסכים"], ["argue", "להתווכח"], ["discuss", "לדון"], ["suggest", "להציע"], ["advice", "עצה"], ["message", "הודעה"], ["conversation", "שיחה"], ["describe", "לתאר"], ["mention", "להזכיר"], ["complain", "להתלונן"], ["promise", "להבטיח"], ["apologize", "להתנצל"], ["invite", "להזמין"], ["reply", "להשיב"], ["whisper", "ללחוש"], ["shout", "לצעוק"], ["truth", "אמת"], ["secret", "סוד"]], "טבע וסביבה": [["environment", "סביבה"], ["nature", "טבע"], ["pollution", "זיהום"], ["recycle", "למחזר"], ["energy", "אנרגיה"], ["planet", "כוכב לכת"], ["ocean", "אוקיינוס"], ["climate", "אקלים"], ["temperature", "טמפרטורה"], ["protect", "להגן"], ["plant", "צמח"], ["animal", "בעל חיים"], ["insect", "חרק"], ["wild", "פראי"], ["rare", "נדיר"], ["disappear", "להיעלם"], ["waste", "פסולת"], ["clean", "נקי"], ["dirty", "מלוכלך"], ["future", "עתיד"]], "אנשים ויחסים": [["neighbor", "שכן"], ["relative", "קרוב משפחה"], ["stranger", "זר"], ["guest", "אורח"], ["crowd", "קהל"], ["leader", "מנהיג"], ["member", "חבר (בקבוצה)"], ["partner", "שותף"], ["relationship", "קשר"], ["trust", "אמון"], ["respect", "כבוד"], ["share", "לשתף"], ["support", "לתמוך"], ["care", "לדאוג"], ["fight", "לריב"], ["forgive", "לסלוח"], ["lonely", "בודד"], ["popular", "פופולרי"], ["generous", "נדיב"], ["jealous", "מקנא"]], "ספורט ותחרויות": [["competition", "תחרות"], ["champion", "אלוף"], ["coach", "מאמן"], ["player", "שחקן"], ["score", "ניקוד"], ["goal", "שער (בכדורגל)"], ["training", "אימון"], ["muscle", "שריר"], ["fit", "בכושר"], ["injury", "פציעה"], ["diet", "תזונה"], ["sweat", "להזיע"], ["stretch", "להתמתח"], ["race", "מרוץ"], ["medal", "מדליה"], ["referee", "שופט (במשחק)"], ["stadium", "אצטדיון"], ["fan", "אוהד"], ["defeat", "להביס"], ["effort", "מאמץ"]], "רגשות ומצבים": [["confused", "מבולבל"], ["nervous", "לחוץ"], ["embarrassed", "נבוך"], ["disappointed", "מאוכזב"], ["grateful", "אסיר תודה"], ["relaxed", "נינוח"], ["satisfied", "מרוצה"], ["upset", "נסער"], ["scared", "מפוחד"], ["calm", "רגוע"], ["anxious", "חרד"], ["cheerful", "עליז"], ["furious", "זועם"], ["hopeful", "מלא תקווה"], ["miserable", "אומלל"], ["annoyed", "מעוצבן"], ["amazed", "נדהם"], ["ashamed", "מתבייש"], ["delighted", "מאושר מאוד"], ["frightened", "מבוהל"]], "פעלים שימושיים": [["allow", "להרשות"], ["refuse", "לסרב"], ["prepare", "להכין"], ["collect", "לאסוף"], ["explore", "לחקור"], ["imagine", "לדמיין"], ["notice", "לשים לב"], ["realize", "להבין פתאום"], ["manage", "לנהל"], ["organize", "לארגן"], ["lend", "להשאיל"], ["wonder", "לתהות"], ["hurry", "למהר"], ["spend", "להוציא (כסף)"], ["earn", "להרוויח"], ["hope", "לקוות"], ["expect", "לצפות (ש...)"], ["measure", "למדוד"], ["attack", "לתקוף"], ["escape", "לברוח"]]}, "ח'": {"פעלים אקדמיים": [["achieve", "להשיג"], ["avoid", "להימנע"], ["compare", "להשוות"], ["consider", "לשקול"], ["prevent", "למנוע"], ["increase", "להגדיל"], ["reduce", "להקטין"], ["include", "לכלול"], ["require", "לדרוש"], ["provide", "לספק"], ["develop", "לפתח"], ["create", "ליצור"], ["discover", "לגלות"], ["examine", "לבחון"], ["identify", "לזהות"], ["predict", "לחזות"], ["solve", "לפתור"], ["replace", "להחליף"], ["affect", "להשפיע על"], ["prove", "להוכיח"]], "מושגים ורעיונות": [["benefit", "תועלת"], ["advantage", "יתרון"], ["disadvantage", "חיסרון"], ["purpose", "מטרה"], ["reason", "סיבה"], ["result", "תוצאה"], ["cause", "גורם"], ["effect", "השפעה"], ["solution", "פתרון"], ["situation", "מצב"], ["method", "שיטה"], ["process", "תהליך"], ["evidence", "ראיה"], ["fact", "עובדה"], ["idea", "רעיון"], ["attitude", "גישה"], ["quality", "איכות"], ["amount", "כמות"], ["importance", "חשיבות"], ["success", "הצלחה"]], "תיאורים ותכונות": [["ancient", "עתיק"], ["modern", "מודרני"], ["common", "נפוץ"], ["unusual", "יוצא דופן"], ["necessary", "הכרחי"], ["possible", "אפשרי"], ["impossible", "בלתי אפשרי"], ["similar", "דומה"], ["obvious", "ברור מאליו"], ["serious", "רציני"], ["positive", "חיובי"], ["negative", "שלילי"], ["huge", "ענק"], ["tiny", "זעיר"], ["average", "ממוצע"], ["complete", "שלם"], ["confident", "בטוח בעצמו"], ["curious", "סקרן"], ["independent", "עצמאי"], ["responsible", "אחראי"]], "חברה וטכנולוגיה": [["society", "חברה (קהילת אנשים)"], ["government", "ממשלה"], ["law", "חוק"], ["citizen", "אזרח"], ["community", "קהילה"], ["culture", "תרבות"], ["tradition", "מסורת"], ["population", "אוכלוסייה"], ["technology", "טכנולוגיה"], ["device", "מכשיר"], ["invention", "המצאה"], ["screen", "מסך"], ["internet", "אינטרנט"], ["information", "מידע"], ["connect", "לחבר"], ["download", "להוריד (קובץ)"], ["equal", "שווה"], ["freedom", "חופש"], ["war", "מלחמה"], ["peace", "שלום"]], "כלכלה ועבודה": [["economy", "כלכלה"], ["price", "מחיר"], ["salary", "משכורת"], ["budget", "תקציב"], ["profit", "רווח"], ["loss", "הפסד"], ["tax", "מס"], ["customer", "לקוח"], ["product", "מוצר"], ["company", "חברה (עסק)"], ["industry", "תעשייה"], ["employee", "עובד"], ["employer", "מעסיק"], ["invest", "להשקיע"], ["afford", "להרשות לעצמו"], ["debt", "חוב"], ["loan", "הלוואה"], ["purchase", "רכישה"], ["value", "ערך"], ["trade", "מסחר"]], "מדע ורפואה": [["experiment", "ניסוי"], ["theory", "תאוריה"], ["laboratory", "מעבדה"], ["chemical", "חומר כימי"], ["oxygen", "חמצן"], ["cell", "תא"], ["brain", "מוח"], ["disease", "מחלה"], ["virus", "נגיף"], ["cure", "ריפוי"], ["treatment", "טיפול"], ["symptom", "תסמין"], ["vaccine", "חיסון"], ["nutrition", "תזונה"], ["digest", "לעכל"], ["breathe", "לנשום"], ["organ", "איבר"], ["gravity", "כוח המשיכה"], ["observe", "להתבונן"], ["conclusion", "מסקנה"]], "מילות קישור": [["however", "אולם"], ["therefore", "לכן"], ["although", "למרות ש..."], ["because of", "בגלל"], ["instead of", "במקום"], ["unless", "אלא אם כן"], ["while", "בזמן ש..."], ["whether", "האם"], ["despite", "למרות"], ["moreover", "יתר על כן"], ["otherwise", "אחרת"], ["meanwhile", "בינתיים"], ["finally", "לבסוף"], ["especially", "במיוחד"], ["actually", "בעצם"], ["probably", "כנראה"], ["suddenly", "פתאום"], ["recently", "לאחרונה"], ["eventually", "בסופו של דבר"], ["quite", "די"]]}};
 const GRADES = Object.keys(BANK);
 const bankAll = g => Object.values(BANK[g]||{}).flat();
 const KIDS = [{"id": "animals", "name": "חיות", "icon": "🐶", "words": [["dog", "כלב", "🐶"], ["cat", "חתול", "🐱"], ["cow", "פרה", "🐮"], ["horse", "סוס", "🐴"], ["pig", "חזיר", "🐷"], ["sheep", "כבשה", "🐑"], ["chicken", "תרנגולת", "🐔"], ["duck", "ברווז", "🦆"], ["fish", "דג", "🐟"], ["bird", "ציפור", "🐦"], ["lion", "אריה", "🦁"], ["monkey", "קוף", "🐵"], ["elephant", "פיל", "🐘"], ["rabbit", "ארנב", "🐰"], ["frog", "צפרדע", "🐸"], ["bear", "דוב", "🐻"], ["mouse", "עכבר", "🐭"], ["snake", "נחש", "🐍"], ["turtle", "צב", "🐢"], ["butterfly", "פרפר", "🦋"]]}, {"id": "food", "name": "אוכל", "icon": "🍎", "words": [["apple", "תפוח", "🍎"], ["banana", "בננה", "🍌"], ["orange", "תפוז", "🍊"], ["grapes", "ענבים", "🍇"], ["strawberry", "תות", "🍓"], ["watermelon", "אבטיח", "🍉"], ["bread", "לחם", "🍞"], ["cheese", "גבינה", "🧀"], ["egg", "ביצה", "🥚"], ["milk", "חלב", "🥛"], ["cake", "עוגה", "🍰"], ["pizza", "פיצה", "🍕"], ["ice cream", "גלידה", "🍦"], ["carrot", "גזר", "🥕"], ["tomato", "עגבנייה", "🍅"], ["cookie", "עוגייה", "🍪"], ["candy", "סוכרייה", "🍬"], ["juice", "מיץ", "🧃"], ["corn", "תירס", "🌽"], ["water", "מים", "💧"]]}, {"id": "colors", "name": "צבעים", "icon": "🎨", "words": [["red", "אדום", "🔴"], ["blue", "כחול", "🔵"], ["green", "ירוק", "🟢"], ["yellow", "צהוב", "🟡"], ["orange", "כתום", "🟠"], ["purple", "סגול", "🟣"], ["black", "שחור", "⚫"], ["white", "לבן", "⚪"], ["brown", "חום", "🟤"]]}, {"id": "numbers", "name": "מספרים", "icon": "🔢", "words": [["one", "אחת", "1️⃣"], ["two", "שתיים", "2️⃣"], ["three", "שלוש", "3️⃣"], ["four", "ארבע", "4️⃣"], ["five", "חמש", "5️⃣"], ["six", "שש", "6️⃣"], ["seven", "שבע", "7️⃣"], ["eight", "שמונה", "8️⃣"], ["nine", "תשע", "9️⃣"], ["ten", "עשר", "🔟"]]}, {"id": "home", "name": "בבית", "icon": "🏠", "words": [["house", "בית", "🏠"], ["door", "דלת", "🚪"], ["bed", "מיטה", "🛏️"], ["chair", "כיסא", "🪑"], ["book", "ספר", "📕"], ["pencil", "עיפרון", "✏️"], ["bag", "תיק", "🎒"], ["ball", "כדור", "⚽"], ["key", "מפתח", "🔑"], ["phone", "טלפון", "📱"], ["clock", "שעון", "⏰"], ["cup", "כוס", "☕"], ["hat", "כובע", "🎩"], ["shoe", "נעל", "👟"], ["shirt", "חולצה", "👕"], ["glasses", "משקפיים", "👓"], ["umbrella", "מטרייה", "☂️"], ["gift", "מתנה", "🎁"], ["balloon", "בלון", "🎈"], ["teddy bear", "דובי", "🧸"]]}, {"id": "transport", "name": "תחבורה", "icon": "🚗", "words": [["car", "מכונית", "🚗"], ["bus", "אוטובוס", "🚌"], ["train", "רכבת", "🚆"], ["airplane", "מטוס", "✈️"], ["boat", "סירה", "⛵"], ["bicycle", "אופניים", "🚲"], ["truck", "משאית", "🚚"], ["taxi", "מונית", "🚕"], ["motorcycle", "אופנוע", "🏍️"], ["rocket", "טיל", "🚀"], ["helicopter", "מסוק", "🚁"], ["ambulance", "אמבולנס", "🚑"], ["fire truck", "כבאית", "🚒"], ["tractor", "טרקטור", "🚜"], ["ship", "אונייה", "🚢"]]}, {"id": "body", "name": "גוף ורגשות", "icon": "👋", "words": [["eye", "עין", "👁️"], ["ear", "אוזן", "👂"], ["nose", "אף", "👃"], ["mouth", "פה", "👄"], ["hand", "יד", "✋"], ["foot", "כף רגל", "🦶"], ["tooth", "שן", "🦷"], ["leg", "רגל", "🦵"], ["happy", "שמח", "😀"], ["sad", "עצוב", "😢"], ["angry", "כועס", "😠"], ["baby", "תינוק", "👶"], ["boy", "ילד", "👦"], ["girl", "ילדה", "👧"]]}, {"id": "nature", "name": "טבע", "icon": "🌳", "words": [["sun", "שמש", "☀️"], ["moon", "ירח", "🌙"], ["star", "כוכב", "⭐"], ["cloud", "ענן", "☁️"], ["rain", "גשם", "🌧️"], ["snow", "שלג", "❄️"], ["tree", "עץ", "🌳"], ["flower", "פרח", "🌸"], ["fire", "אש", "🔥"], ["rainbow", "קשת בענן", "🌈"], ["sea", "ים", "🌊"], ["mountain", "הר", "⛰️"], ["leaf", "עלה", "🍃"]]}];
 const KID_AGES = {gan:{label:"גן",icon:"🧸",n:2,len:6},a:{label:"כיתה א'",icon:"✏️",n:3,len:8},b:{label:"כיתה ב'",icon:"🎒",n:4,len:8}};
+const GRAM = {"verbs": [{"base": "play", "s": "plays", "past": "played", "irr": false, "easy": false, "c": "football"}, {"base": "watch", "s": "watches", "past": "watched", "irr": false, "easy": false, "c": "TV"}, {"base": "cook", "s": "cooks", "past": "cooked", "irr": false, "easy": false, "c": "dinner"}, {"base": "clean", "s": "cleans", "past": "cleaned", "irr": false, "easy": false, "c": "the room"}, {"base": "help", "s": "helps", "past": "helped", "irr": false, "easy": false, "c": "my friend"}, {"base": "visit", "s": "visits", "past": "visited", "irr": false, "easy": false, "c": "Grandma"}, {"base": "walk", "s": "walks", "past": "walked", "irr": false, "easy": false, "c": "to school"}, {"base": "open", "s": "opens", "past": "opened", "irr": false, "easy": false, "c": "the window"}, {"base": "listen", "s": "listens", "past": "listened", "irr": false, "easy": false, "c": "to music"}, {"base": "study", "s": "studies", "past": "studied", "irr": false, "easy": false, "c": "English"}, {"base": "carry", "s": "carries", "past": "carried", "irr": false, "easy": false, "c": "a heavy bag"}, {"base": "dance", "s": "dances", "past": "danced", "irr": false, "easy": false, "c": "at the party"}, {"base": "jump", "s": "jumps", "past": "jumped", "irr": false, "easy": false, "c": "into the pool"}, {"base": "paint", "s": "paints", "past": "painted", "irr": false, "easy": false, "c": "the fence"}, {"base": "wash", "s": "washes", "past": "washed", "irr": false, "easy": false, "c": "the dishes"}, {"base": "call", "s": "calls", "past": "called", "irr": false, "easy": false, "c": "Dad"}, {"base": "finish", "s": "finishes", "past": "finished", "irr": false, "easy": false, "c": "the homework"}, {"base": "travel", "s": "travels", "past": "traveled", "irr": false, "easy": false, "c": "to Eilat"}, {"base": "go", "s": "goes", "past": "went", "irr": true, "easy": true, "c": "to the park"}, {"base": "eat", "s": "eats", "past": "ate", "irr": true, "easy": true, "c": "breakfast"}, {"base": "drink", "s": "drinks", "past": "drank", "irr": true, "easy": true, "c": "orange juice"}, {"base": "see", "s": "sees", "past": "saw", "irr": true, "easy": true, "c": "a movie"}, {"base": "come", "s": "comes", "past": "came", "irr": true, "easy": true, "c": "home early"}, {"base": "make", "s": "makes", "past": "made", "irr": true, "easy": true, "c": "a cake"}, {"base": "write", "s": "writes", "past": "wrote", "irr": true, "easy": false, "c": "a letter"}, {"base": "buy", "s": "buys", "past": "bought", "irr": true, "easy": false, "c": "new shoes"}, {"base": "swim", "s": "swims", "past": "swam", "irr": true, "easy": false, "c": "in the sea"}, {"base": "run", "s": "runs", "past": "ran", "irr": true, "easy": false, "c": "in the park"}, {"base": "sing", "s": "sings", "past": "sang", "irr": true, "easy": false, "c": "a song"}, {"base": "take", "s": "takes", "past": "took", "irr": true, "easy": false, "c": "the bus"}, {"base": "give", "s": "gives", "past": "gave", "irr": true, "easy": false, "c": "a present"}, {"base": "drive", "s": "drives", "past": "drove", "irr": true, "easy": false, "c": "to work"}, {"base": "ride", "s": "rides", "past": "rode", "irr": true, "easy": false, "c": "a bike"}, {"base": "win", "s": "wins", "past": "won", "irr": true, "easy": false, "c": "the game"}, {"base": "draw", "s": "draws", "past": "drew", "irr": true, "easy": false, "c": "a map"}, {"base": "fly", "s": "flies", "past": "flew", "irr": true, "easy": false, "c": "to London"}, {"base": "break", "s": "breaks", "past": "broke", "irr": true, "easy": false, "c": "a glass"}, {"base": "teach", "s": "teaches", "past": "taught", "irr": true, "easy": false, "c": "math"}, {"base": "catch", "s": "catches", "past": "caught", "irr": true, "easy": false, "c": "the ball"}, {"base": "sleep", "s": "sleeps", "past": "slept", "irr": true, "easy": false, "c": "at Grandma's house"}], "nouns": [{"sg": "cat", "pl": "cats", "r": "s", "he": "חתול"}, {"sg": "dog", "pl": "dogs", "r": "s", "he": "כלב"}, {"sg": "book", "pl": "books", "r": "s", "he": "ספר"}, {"sg": "apple", "pl": "apples", "r": "s", "he": "תפוח"}, {"sg": "girl", "pl": "girls", "r": "s", "he": "ילדה"}, {"sg": "car", "pl": "cars", "r": "s", "he": "מכונית"}, {"sg": "house", "pl": "houses", "r": "s", "he": "בית"}, {"sg": "tree", "pl": "trees", "r": "s", "he": "עץ"}, {"sg": "pen", "pl": "pens", "r": "s", "he": "עט"}, {"sg": "bird", "pl": "birds", "r": "s", "he": "ציפור"}, {"sg": "box", "pl": "boxes", "r": "es", "he": "קופסה"}, {"sg": "bus", "pl": "buses", "r": "es", "he": "אוטובוס"}, {"sg": "watch", "pl": "watches", "r": "es", "he": "שעון יד"}, {"sg": "dish", "pl": "dishes", "r": "es", "he": "צלחת"}, {"sg": "glass", "pl": "glasses", "r": "es", "he": "כוס"}, {"sg": "fox", "pl": "foxes", "r": "es", "he": "שועל"}, {"sg": "class", "pl": "classes", "r": "es", "he": "כיתה"}, {"sg": "brush", "pl": "brushes", "r": "es", "he": "מברשת"}, {"sg": "tomato", "pl": "tomatoes", "r": "es", "he": "עגבנייה"}, {"sg": "potato", "pl": "potatoes", "r": "es", "he": "תפוח אדמה"}, {"sg": "beach", "pl": "beaches", "r": "es", "he": "חוף"}, {"sg": "dress", "pl": "dresses", "r": "es", "he": "שמלה"}, {"sg": "baby", "pl": "babies", "r": "ies", "he": "תינוק"}, {"sg": "city", "pl": "cities", "r": "ies", "he": "עיר"}, {"sg": "party", "pl": "parties", "r": "ies", "he": "מסיבה"}, {"sg": "story", "pl": "stories", "r": "ies", "he": "סיפור"}, {"sg": "family", "pl": "families", "r": "ies", "he": "משפחה"}, {"sg": "country", "pl": "countries", "r": "ies", "he": "ארץ"}, {"sg": "lady", "pl": "ladies", "r": "ies", "he": "גברת"}, {"sg": "cherry", "pl": "cherries", "r": "ies", "he": "דובדבן"}, {"sg": "boy", "pl": "boys", "r": "ys", "he": "ילד"}, {"sg": "day", "pl": "days", "r": "ys", "he": "יום"}, {"sg": "key", "pl": "keys", "r": "ys", "he": "מפתח"}, {"sg": "toy", "pl": "toys", "r": "ys", "he": "צעצוע"}, {"sg": "monkey", "pl": "monkeys", "r": "ys", "he": "קוף"}, {"sg": "knife", "pl": "knives", "r": "ves", "he": "סכין"}, {"sg": "leaf", "pl": "leaves", "r": "ves", "he": "עלה"}, {"sg": "wolf", "pl": "wolves", "r": "ves", "he": "זאב"}, {"sg": "wife", "pl": "wives", "r": "ves", "he": "אישה (רעיה)"}, {"sg": "shelf", "pl": "shelves", "r": "ves", "he": "מדף"}, {"sg": "half", "pl": "halves", "r": "ves", "he": "חצי"}, {"sg": "thief", "pl": "thieves", "r": "ves", "he": "גנב"}, {"sg": "child", "pl": "children", "r": "irr", "he": "ילד / ילדה"}, {"sg": "man", "pl": "men", "r": "irr", "he": "גבר"}, {"sg": "woman", "pl": "women", "r": "irr", "he": "אישה"}, {"sg": "foot", "pl": "feet", "r": "irr", "he": "כף רגל"}, {"sg": "tooth", "pl": "teeth", "r": "irr", "he": "שן"}, {"sg": "mouse", "pl": "mice", "r": "irr", "he": "עכבר"}, {"sg": "person", "pl": "people", "r": "irr", "he": "אדם"}, {"sg": "goose", "pl": "geese", "r": "irr", "he": "אווז"}, {"sg": "sheep", "pl": "sheep", "r": "same", "he": "כבשה"}, {"sg": "fish", "pl": "fish", "r": "same", "he": "דג"}, {"sg": "deer", "pl": "deer", "r": "same", "he": "צבי"}], "complete": {"ד'": [["I drink ___ every morning.", "milk", "chair", "pencil", "אני שותה חלב כל בוקר."], ["A banana is ___.", "yellow", "blue", "black", "בננה היא צהובה."], ["I write with a ___.", "pen", "cake", "dog", "אני כותב בעט."], ["My mother's mother is my ___.", "grandmother", "sister", "baby", "אמא של אמא שלי היא סבתא שלי."], ["I sleep in my ___.", "bed", "bag", "egg", "אני ישן במיטה שלי."], ["A cat says meow and a ___ says woof.", "dog", "bird", "cake", "חתול אומר מיאו וכלב אומר הב."], ["I smell with my ___.", "nose", "hand", "leg", "אני מריח עם האף."], ["Two plus two is ___.", "four", "seven", "ten", "שתיים ועוד שתיים זה ארבע."], ["I am ___ today. I have a party!", "happy", "sad", "brown", "אני שמח היום. יש לי מסיבה!"], ["The teacher writes on the ___.", "board", "bed", "fish", "המורה כותב על הלוח."], ["Open the ___, please. It is hot.", "window", "cake", "nose", "פתח את החלון בבקשה. חם."], ["We eat ___ with butter.", "bread", "juice", "chair", "אנחנו אוכלים לחם עם חמאה."], ["A ___ can fly.", "bird", "cat", "dog", "ציפור יכולה לעוף."], ["I put my books in my ___.", "bag", "cake", "milk", "אני שם את הספרים בתיק שלי."], ["The sky is ___.", "blue", "green", "brown", "השמיים כחולים."]], "ה'": [["I eat ___ at eight in the morning.", "breakfast", "dinner", "homework", "אני אוכל ארוחת בוקר בשמונה בבוקר."], ["It is very cold. Look, there is ___ on the mountain!", "snow", "sun", "beach", "קר מאוד. תראו, יש שלג על ההר!"], ["I take books from the ___.", "library", "zoo", "hospital", "אני לוקח ספרים מהספרייה."], ["Lions and monkeys live in the ___.", "zoo", "bank", "library", "אריות וקופים גרים בגן החיות."], ["I do my ___ after school.", "homework", "breakfast", "weather", "אני מכין שיעורי בית אחרי בית הספר."], ["In ___ it is very hot.", "summer", "winter", "autumn", "בקיץ חם מאוד."], ["We wait for the train at the ___.", "station", "beach", "restaurant", "אנחנו מחכים לרכבת בתחנה."], ["Our ___ won the game!", "team", "cloud", "street", "הקבוצה שלנו ניצחה במשחק!"], ["I ___ my teeth every morning.", "brush", "cook", "ride", "אני מצחצח שיניים כל בוקר."], ["Take an umbrella. It's going to ___.", "rain", "swim", "sun", "קח מטרייה. עומד לרדת גשם."], ["The hospital is not near. It is ___.", "far", "early", "warm", "בית החולים לא קרוב. הוא רחוק."], ["My ___ is football. I play every day.", "hobby", "weekend", "market", "התחביב שלי הוא כדורגל. אני משחק כל יום."], ["We buy fruit and vegetables at the ___.", "market", "river", "zoo", "אנחנו קונים פירות וירקות בשוק."], ["I put the milk in the ___.", "refrigerator", "oven", "roof", "אני שם את החלב במקרר."], ["A ___ flies planes.", "pilot", "farmer", "waiter", "טייס מטיס מטוסים."]], "ו'": [["I can't ___ your name. What is it?", "remember", "borrow", "build", "אני לא זוכר את השם שלך. מה הוא?"], ["Can I ___ your pencil? I'll give it back.", "borrow", "forget", "hide", "אפשר לשאול את העיפרון שלך? אחזיר אותו."], ["We slept in a ___ in the forest.", "tent", "passport", "ticket", "ישנו באוהל ביער."], ["You need a ___ to fly to another country.", "passport", "tent", "map", "צריך דרכון כדי לטוס לארץ אחרת."], ["I have a ___. My head hurts.", "headache", "accident", "habit", "יש לי כאב ראש. הראש כואב לי."], ["She is ___. She is not afraid of anything.", "brave", "lazy", "shy", "היא אמיצה. היא לא מפחדת משום דבר."], ["I didn't eat all day. I'm very ___.", "hungry", "proud", "polite", "לא אכלתי כל היום. אני מאוד רעב."], ["The soup is too ___. I need water!", "spicy", "quiet", "safe", "המרק חריף מדי. אני צריך מים!"], ["The waiter gave us the ___ and we chose our food.", "menu", "bill", "recipe", "המלצר נתן לנו את התפריט ובחרנו אוכל."], ["Don't forget your ___. Without it you can't log in.", "password", "battery", "camera", "אל תשכח את הסיסמה. בלעדיה אי אפשר להתחבר."], ["My phone is dead. I need my ___.", "charger", "keyboard", "website", "הטלפון נכבה. אני צריך את המטען."], ["There are sixty minutes in an ___.", "hour", "week", "century", "יש שישים דקות בשעה."], ["Wait for me. I'll be there ___.", "soon", "already", "rarely", "חכה לי. אגיע בקרוב."], ["It is ___ to swim here. There are sharks!", "dangerous", "healthy", "friendly", "מסוכן לשחות כאן. יש כרישים!"], ["My birthday is in May. I'm waiting for my ___ party.", "birthday", "calendar", "century", "יום ההולדת שלי במאי. אני מחכה למסיבת יום ההולדת."]], "ז'": [["I made a ___ in the test, so I got 90.", "mistake", "research", "secret", "עשיתי טעות במבחן, אז קיבלתי 90."], ["We should ___ plastic bottles to protect the environment.", "recycle", "whisper", "apologize", "כדאי למחזר בקבוקי פלסטיק כדי להגן על הסביבה."], ["I'm sorry. I want to ___ for being late.", "apologize", "recycle", "collect", "אני מצטער. אני רוצה להתנצל על האיחור."], ["Can you keep a ___? Don't tell anyone.", "secret", "planet", "medal", "אתה יודע לשמור סוד? אל תספר לאף אחד."], ["The ___ blew the whistle and stopped the game.", "referee", "fan", "neighbor", "השופט שרק ועצר את המשחק."], ["She won a gold ___ in the race.", "medal", "muscle", "diet", "היא זכתה במדליית זהב במרוץ."], ["I was so ___ when I fell in front of the whole class.", "embarrassed", "grateful", "relaxed", "הייתי כל כך נבוך כשנפלתי מול כל הכיתה."], ["Thank you for your help. I'm really ___.", "grateful", "furious", "jealous", "תודה על העזרה. אני ממש אסיר תודה."], ["Factories cause air ___.", "pollution", "knowledge", "trust", "מפעלים גורמים לזיהום אוויר."], ["I don't ___ with you. I think you are wrong.", "agree", "invite", "measure", "אני לא מסכים איתך. אני חושב שאתה טועה."], ["The ___ of the team told everyone what to do.", "leader", "stranger", "guest", "המנהיג של הקבוצה אמר לכולם מה לעשות."], ["My grandpa gave me good ___: always do your best.", "advice", "pollution", "injury", "סבא נתן לי עצה טובה: תמיד תשתדל כמה שאתה יכול."], ["I have to ___ for the trip, so I'm packing my bag.", "prepare", "refuse", "attack", "אני צריך להתכונן לטיול, אז אני אורז את התיק."], ["Some animals are very ___. You can't find them easily.", "rare", "dirty", "wild", "חלק מבעלי החיים נדירים מאוד. קשה למצוא אותם."], ["Earth is a ___.", "planet", "crowd", "partner", "כדור הארץ הוא כוכב לכת."]], "ח'": [["Smoking can ___ your health.", "affect", "afford", "invest", "עישון יכול להשפיע על הבריאות שלך."], ["We did an ___ in the lab to check our theory.", "experiment", "economy", "attitude", "עשינו ניסוי במעבדה כדי לבדוק את התאוריה שלנו."], ["It rained a lot. ___, the game was cancelled.", "Therefore", "Although", "Unless", "ירד הרבה גשם. לכן המשחק בוטל."], ["___ it was cold, we went to the beach.", "Although", "Therefore", "Moreover", "למרות שהיה קר, הלכנו לים."], ["Doctors are trying to find a ___ for the disease.", "cure", "profit", "tax", "רופאים מנסים למצוא ריפוי למחלה."], ["I can't ___ a new phone. It's too expensive.", "afford", "predict", "breathe", "אני לא יכול להרשות לעצמי טלפון חדש. הוא יקר מדי."], ["Wear a helmet to ___ head injuries.", "prevent", "include", "discover", "חבוש קסדה כדי למנוע פגיעות ראש."], ["The police found ___ that he was there.", "evidence", "attitude", "quality", "המשטרה מצאה ראיות שהוא היה שם."], ["Every ___ has the right to vote.", "citizen", "device", "invention", "לכל אזרח יש זכות להצביע."], ["Fish use gills to ___ under water.", "breathe", "invest", "digest", "דגים משתמשים בזימים כדי לנשום מתחת למים."], ["The company made a big ___ this year.", "profit", "symptom", "gravity", "החברה עשתה רווח גדול השנה."], ["Fever is a common ___ of the flu.", "symptom", "salary", "tradition", "חום הוא תסמין נפוץ של שפעת."], ["You won't pass the exam ___ you study.", "unless", "moreover", "meanwhile", "לא תעבור את המבחן אלא אם כן תלמד."], ["Thousands of years ago, ___ people lived in caves.", "ancient", "modern", "confident", "לפני אלפי שנים אנשים קדומים חיו במערות."], ["She is very ___. She always does her homework on time.", "responsible", "tiny", "negative", "היא אחראית מאוד. היא תמיד מכינה שיעורי בית בזמן."]]}, "opp": [["big", "small", "גדול", "קטן"], ["hot", "cold", "חם", "קר"], ["happy", "sad", "שמח", "עצוב"], ["fast", "slow", "מהיר", "איטי"], ["new", "old", "חדש", "ישן"], ["tall", "short", "גבוה", "נמוך"], ["full", "empty", "מלא", "ריק"], ["clean", "dirty", "נקי", "מלוכלך"], ["strong", "weak", "חזק", "חלש"], ["open", "closed", "פתוח", "סגור"], ["up", "down", "למעלה", "למטה"], ["in", "out", "בפנים", "בחוץ"], ["come", "go", "לבוא", "ללכת"], ["laugh", "cry", "לצחוק", "לבכות"], ["give", "take", "לתת", "לקחת"], ["early", "late", "מוקדם", "מאוחר"], ["loud", "quiet", "רועש", "שקט"], ["first", "last", "ראשון", "אחרון"], ["cheap", "expensive", "זול", "יקר"], ["rich", "poor", "עשיר", "עני"], ["easy", "difficult", "קל", "קשה"], ["dark", "light", "חשוך", "מואר"], ["always", "never", "תמיד", "אף פעם"], ["love", "hate", "לאהוב", "לשנוא"], ["buy", "sell", "לקנות", "למכור"], ["win", "lose", "לנצח", "להפסיד"], ["push", "pull", "לדחוף", "למשוך"], ["remember", "forget", "לזכור", "לשכוח"], ["start", "finish", "להתחיל", "לסיים"], ["true", "false", "נכון", "לא נכון"], ["safe", "dangerous", "בטוח", "מסוכן"]], "preps": [["The book is ___ the table.", "on", "in", "under", "הספר נמצא על השולחן.", "0"], ["The cat is ___ the bed.", "under", "on", "in", "החתול נמצא מתחת למיטה.", "0"], ["The milk is ___ the fridge.", "in", "on", "under", "החלב נמצא בתוך המקרר.", "0"], ["The school is ___ the park.", "next to", "under", "in", "בית הספר נמצא ליד הפארק.", "0"], ["The dog is hiding ___ the door.", "behind", "on", "in front of", "הכלב מתחבא מאחורי הדלת.", "0"], ["The ball is ___ the two chairs.", "between", "on", "behind", "הכדור נמצא בין שני הכיסאות.", "0"], ["The car is ___ the house.", "in front of", "between", "under", "המכונית נמצאת מול הבית.", "0"], ["The picture is ___ the wall.", "on", "in", "under", "התמונה תלויה על הקיר.", "0"], ["The keys are ___ my bag.", "in", "on", "between", "המפתחות נמצאים בתוך התיק שלי.", "0"], ["The lamp is ___ the bed.", "above", "under", "between", "המנורה נמצאת מעל המיטה.", "0"], ["I was born ___ May.", "in", "on", "at", "נולדתי במאי.", "1"], ["The party is ___ Friday.", "on", "in", "at", "המסיבה ביום שישי.", "1"], ["School starts ___ eight o'clock.", "at", "on", "in", "הלימודים מתחילים בשעה שמונה.", "1"], ["We live ___ Haifa.", "in", "on", "at", "אנחנו גרים בחיפה.", "1"], ["She is waiting ___ the bus stop.", "at", "on", "under", "היא מחכה בתחנת האוטובוס.", "1"], ["He walked ___ the room.", "into", "on", "at", "הוא נכנס לחדר.", "1"], ["We go to the beach ___ the summer.", "in", "on", "at", "אנחנו הולכים לים בקיץ.", "1"], ["My birthday is ___ June 5th.", "on", "in", "at", "יום ההולדת שלי ב-5 ביוני.", "1"]], "arts": [["apple", "an", "תפוח", "v"], ["egg", "an", "ביצה", "v"], ["orange", "an", "תפוז", "v"], ["umbrella", "an", "מטרייה", "v"], ["elephant", "an", "פיל", "v"], ["ice cream", "an", "גלידה", "v"], ["owl", "an", "ינשוף", "v"], ["island", "an", "אי", "v"], ["idea", "an", "רעיון", "v"], ["uncle", "an", "דוד", "v"], ["car", "a", "מכונית", "c"], ["dog", "a", "כלב", "c"], ["banana", "a", "בננה", "c"], ["house", "a", "בית", "c"], ["horse", "a", "סוס", "c"], ["book", "a", "ספר", "c"], ["cat", "a", "חתול", "c"], ["year", "a", "שנה", "c"], ["hour", "an", "שעה", "h"], ["university", "a", "אוניברסיטה", "u"], ["uniform", "a", "מדים", "u"], ["unicorn", "a", "חד-קרן", "u"]]};
 const MAXBOX = 5;
 const KEY = "milabemila.v1";
 const uid = () => Math.random().toString(36).slice(2,9);
@@ -201,6 +216,8 @@ let state;
 try { state = JSON.parse(localStorage.getItem(KEY)) } catch(e) { state = null }
 if (!state || !Array.isArray(state.lists)) state = sampleState();
 if (!GRADES.includes(state.grade)) state.grade = null;
+if (!state.prefs) state.prefs = {size:10, order:"weak"};
+if (!state.gram) state.gram = {};
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)) } catch(e) {} };
 
 /* ---------- Claude (photo reading + translation), optional ---------- */
@@ -310,6 +327,7 @@ function homeView(){
   }).join("");
   return `${header("home")}
   <button class="btn" data-act="add">+ רשימה חדשה מהמורה</button>
+  <button class="kids-entry gram-entry" data-act="gram"><span class="em emo" aria-hidden="true">✍️</span><span><b>תרגול דקדוק</b>זמנים, יחיד ורבים, השלמת משפטים ועוד</span></button>
   <button class="kids-entry" data-kact="start"><span class="em emo" aria-hidden="true">🧸</span><span><b>משחק לקטנים</b>מילים ראשונות בתמונות, מגן עד כיתה ב'</span></button>
   ${cards || `<div class="card"><p>עוד אין רשימות. צלמו את דף המילים מהמורה או הקלידו אותו, ונתחיל לתרגל.</p></div>`}`;
 }
@@ -324,7 +342,8 @@ function listView(){
     ["spell","שלב 3","איות בהכתבה","שומעים וכותבים, אות אחר אות"],
     ["test","שלב 4","מבחן כמו בכיתה","מעברית לאנגלית, בלי רמזים"]
   ].map(([m,s,t,dsc])=>`<button class="mode ${m===rec?"rec":""}" data-mode="${m}"><span class="step">${s}${m===rec?" · מומלץ עכשיו":""}</span><b>${t}</b><span class="muted">${dsc}</span></button>`).join("");
-  const rows = l.words.slice().sort((a,b)=>a.box-b.box).map(w=>`<div class="word-row">
+  const pool = activePool(l);
+  const rows = pool.slice().sort((a,b)=>a.box-b.box).map(w=>`<div class="word-row">
     <span class="en">${esc(w.en)}</span><span>${esc(w.he)}</span>${dots(w.box)}</div>`).join("");
   return `<button class="back" data-act="home">→ חזרה לרשימות</button>
   <div class="card">
@@ -334,9 +353,15 @@ function listView(){
     <div class="meter"><i style="width:${r}%"></i></div>
     ${d!==null&&d>=0&&d<=1?`<div class="note warn">המבחן קרוב. מצב "מבחן" מתמקד במילים שעדיין לא יושבות.</div>`:""}
   </div>
+  <div class="card">
+    <h3>הגדרות התרגול</h3>
+    ${groupBar(l)}
+    ${sizeBar(true,"מילים בסשן")}
+    ${orderBar()}
+  </div>
   <h3>במה מתרגלים?</h3>
   <div class="modes">${modes}</div>
-  <div class="card"><div class="row spread"><h3>המילים ברשימה</h3><button class="btn small soft" data-act="edit">עריכה</button></div>
+  <div class="card"><div class="row spread"><h3>${pool.length<l.words.length?`המילים שנבחרו (${pool.length})`:`המילים ברשימה (${l.words.length})`}</h3><button class="btn small soft" data-act="edit">עריכה</button></div>
   <div class="words">${rows}</div></div>
   <button class="btn ghost small" data-act="delete-ask">מחיקת הרשימה</button>
   <div id="delbox" hidden class="card"><p>למחוק את "${esc(l.name)}" עם כל ההתקדמות?</p><div class="row"><button class="btn small" data-act="delete">כן, למחוק</button><button class="btn small soft" data-act="delete-cancel">ביטול</button></div></div>`;
@@ -390,7 +415,7 @@ function addView(){
     const topics = Object.entries(BANK[draft.bankGrade]).map(([t,ws])=>`<button class="topic" data-topic="${esc(t)}"><span><b>${esc(t)}</b><br><span class="en">${ws.slice(0,4).map(x=>esc(x[0])).join(", ")}...</span></span><span class="pill num">${ws.length} מילים</span></button>`).join("");
     body = `<div class="seg">${g}</div>
       <p class="muted">${draft.bankGrade===state.grade?"הכיתה של הילד מסומנת בכוכב.":"זו לא הכיתה של הילד, אבל אפשר לתרגל גם ממנה."} בוחרים נושא, וכל נושא הופך לרשימה של 20 מילים.</p>
-      <div class="topics">${topics}</div>`;
+      <div class="topics"><button class="topic" data-topic="__all" style="background:var(--accent-soft)"><span><b>כל המאגר של כיתה ${draft.bankGrade}</b><br><span class="muted" style="font-size:.85rem">כל הנושאים ברשימה אחת, מחולקת לקבוצות של 10</span></span><span class="pill num">${bankAll(draft.bankGrade).length} מילים</span></button>${topics}</div>`;
   }
   const editor = draft.words.length ? reviewBlock() : "";
   return `<button class="back" data-act="home">→ ביטול</button>
@@ -476,16 +501,53 @@ function saveDraft(){
   const noHe = words.filter(w=>!w.he).length;
   if(noHe){ draft.err=`חסר תרגום ל-${noHe} מילים. השלימו או הסירו אותן.`; return render(); }
   const l = {id:uid(), name:draft.name.trim()||"רשימה חדשה", grade:draft.grade, testDate:draft.testDate, words:words.map(w=>mkWord(w.en,w.he))};
+  if(draft.groupNames && words.length===draft.origLen) l.groupNames = draft.groupNames;
   state.lists.push(l); save(); draft=null; go({name:"list", id:l.id});
+}
+
+/* ---------- session settings & groups ---------- */
+const GSIZE = 10;
+let MIX = {id:null, set:new Set()};
+const readinessW = ws => ws.length ? Math.round(ws.reduce((a,w)=>a+w.box,0)/(MAXBOX*ws.length)*100) : 0;
+function groupsOf(l){
+  const n = Math.ceil(l.words.length/GSIZE);
+  return Array.from({length:n},(_,i)=>({i, label:(l.groupNames&&l.groupNames[i])||`קבוצה ${i+1}`, words:l.words.slice(i*GSIZE,(i+1)*GSIZE)}));
+}
+function mixActive(l){ return MIX.id===l.id; }
+function activePool(l){
+  const gs = groupsOf(l);
+  if(mixActive(l) && MIX.set.size>=2) return gs.filter(g=>MIX.set.has(g.i)).flatMap(g=>g.words);
+  if(typeof l.sel==="number" && gs[l.sel]) return gs[l.sel].words;
+  return l.words;
+}
+function sizeBar(withAll, label){
+  const sizes=[5,10,15,20].concat(withAll?["all"]:[]);
+  const cur = (!withAll && state.prefs.size==="all") ? 20 : state.prefs.size;
+  return `<div class="setrow"><span class="muted">${label}</span><div class="seg">${sizes.map(z=>`<button data-psize="${z}" aria-pressed="${String(cur)===String(z)}">${z==="all"?"הכול":z}</button>`).join("")}</div></div>`;
+}
+function orderBar(){
+  const o=[["weak","קודם החלשות"],["random","אקראי"],["seq","לפי הסדר"]];
+  return `<div class="setrow"><span class="muted">סדר המילים</span><div class="seg">${o.map(([k,t])=>`<button data-porder="${k}" aria-pressed="${state.prefs.order===k}">${t}</button>`).join("")}</div></div>`;
+}
+function groupBar(l){
+  const gs = groupsOf(l); if(gs.length<2) return "";
+  const mix = mixActive(l);
+  const chip=(key,label,pct,on)=>`<button data-grp="${key}" aria-pressed="${on}">${esc(label)}${pct===null?"":` <span class="muted num">${pct}%</span>`}</button>`;
+  return `<div class="setrow"><span class="muted">${mix?"בחרו קבוצות לערבוב":"קבוצה"}</span><div class="seg ${gs.length>4?"small":""}">
+    ${mix?"":chip("all",`כל המילים (${l.words.length})`,null,!(typeof l.sel==="number"))}
+    ${gs.map(g=>chip(g.i,g.label,readinessW(g.words), mix?MIX.set.has(g.i):l.sel===g.i)).join("")}
+  </div>
+  <div class="row"><button class="btn small ${mix?"":"soft"}" data-act="mix">${mix?"ביטול הערבוב":"ערבוב חד פעמי בין קבוצות"}</button>
+  ${mix?`<span class="muted" style="font-size:.9rem">${MIX.set.size<2?"בחרו לפחות 2 קבוצות.":`${MIX.set.size} קבוצות נבחרו. הערבוב יחול על הסשן הבא בלבד.`}</span>`:""}</div></div>`;
 }
 
 /* ---------- practice ---------- */
 let P = null;
-function pickWords(l, n){
+function pickWords(pool, n, order){
+  if(order==="seq") return pool.slice(0,n);
+  if(order==="random") return shuffle(pool).slice(0,n);
   // weakest first, with a little randomness among equals
-  const sorted = shuffle(l.words).sort((a,b)=>a.box-b.box);
-  const k = Math.min(n, l.words.length);
-  return shuffle(sorted.slice(0, Math.max(k, Math.min(l.words.length, k))));
+  return shuffle(shuffle(pool).sort((a,b)=>a.box-b.box).slice(0,n));
 }
 function distractors(l, w, field){
   let pool = l.words.filter(x=>x.id!==w.id).map(x=>x[field]);
@@ -494,14 +556,17 @@ function distractors(l, w, field){
 }
 function startPractice(mode){
   const l = state.lists.find(x=>x.id===view.id);
-  const n = mode==="test" ? Math.min(10,l.words.length) : Math.min(8,l.words.length);
-  const items = pickWords(l, n).map(w=>{
+  const pool = activePool(l);
+  const n = state.prefs.size==="all" ? pool.length : Math.min(+state.prefs.size||10, pool.length);
+  const usedMix = mixActive(l) && MIX.set.size>=2;
+  if(mixActive(l)) MIX = {id:null, set:new Set()};   // one-time mix
+  const items = pickWords(pool, n, state.prefs.order).map(w=>{
     const it = {w, tries:0, done:false, ok:null, typed:""};
     if(mode==="learn") it.opts = shuffle([w.he, ...distractors(l,w,"he")]);
     if(mode==="reverse") it.opts = shuffle([w.en, ...distractors(l,w,"en")]);
     return it;
   });
-  P = {mode, listId:l.id, items, i:0, score:0, locked:false, feedback:"", fbClass:""};
+  P = {mode, listId:l.id, items, i:0, score:0, locked:false, feedback:"", fbClass:"", mix:usedMix};
   go({name:"practice", id:l.id});
   setTimeout(autoSpeak, 250);
 }
@@ -539,7 +604,7 @@ function practiceView(){
         ${it.done?"":`<button class="btn" type="submit">בדיקה</button>`}
       </form>`;
   }
-  return `<div class="row spread"><button class="back" data-act="quit">→ יציאה</button><span class="pill">${titles[P.mode]}</span></div>
+  return `<div class="row spread"><button class="back" data-act="quit">→ יציאה</button><span class="row" style="gap:6px">${P.mix?'<span class="pill marker">ערבוב</span>':""}<span class="pill">${titles[P.mode]}</span></span></div>
   <div class="progress"><span class="num muted">${P.i+1}/${P.items.length}</span><div class="meter"><i style="width:${pct}%"></i></div></div>
   <div class="card"><div class="q">${q}
     <div class="feedback ${P.fbClass}" aria-live="polite">${P.feedback}</div>
@@ -604,8 +669,125 @@ function parentView(){
   <div class="card row spread"><span>כיתת הילד: <b>${esc(state.grade||"")}</b></span><button class="btn small soft" data-act="grade">שינוי כיתה</button></div>
   <p class="muted">תמונת מצב לפני המבחן. המוכנות עולה כשהילד עונה נכון על אותה מילה כמה פעמים, ויורדת כשהוא טועה.</p>
   ${items||'<div class="card">אין עדיין רשימות.</div>'}
+  ${Object.keys(state.gram).length?`<div class="card"><h3>דקדוק</h3>${GMODS.filter(m=>state.gram[m.id]).map(m=>{const st=state.gram[m.id];return `<div class="word-row" style="grid-template-columns:1fr auto auto"><span>${m.name}</span><span class="muted num">אחרון ${st.last}%</span><span class="pill ${st.best>=80?"good":""} num">שיא ${st.best}%</span></div>`}).join("")}</div>`:""}
   <button class="btn ghost small" data-act="reset-ask">איפוס כל הנתונים</button>
   <div id="resetbox" hidden class="card"><p>למחוק את כל הרשימות וההתקדמות במכשיר הזה?</p><div class="row"><button class="btn small" data-act="reset">כן, לאפס</button><button class="btn small soft" data-act="reset-cancel">ביטול</button></div></div>`;
+}
+
+/* ---------- grammar ---------- */
+const GMODS = [
+  {id:"tenses", icon:"⏳", name:"עבר, הווה ועתיד", ex:"Yesterday I ___ to school."},
+  {id:"plural", icon:"👥", name:"יחיד ורבים", ex:"one box → two boxes"},
+  {id:"complete", icon:"🧩", name:"השלמת משפטים", ex:"I drink ___ every morning."},
+  {id:"opposites", icon:"↔️", name:"הפכים", ex:"big ↔ small"},
+  {id:"preps", icon:"📦", name:"מילות יחס", ex:"in · on · under · next to"},
+  {id:"articles", icon:"🅰️", name:"a או an", ex:"an apple · a banana"}
+];
+const gi = () => Math.max(0, GRADES.indexOf(state.grade));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const B = s => s.replace("___",'<span class="blank">___</span>');
+const E = s => `<span class="en">${esc(s)}</span>`;
+const SUBJ = [{low:"I",third:false},{low:"you",third:false},{low:"he",third:true},{low:"she",third:true},{low:"we",third:false},{low:"they",third:false},{low:"my brother",third:true},{low:"the children",third:false},{low:"Dana",third:true}];
+const MARK = {past:["Yesterday","Last week","Last summer","Two days ago"], present:["Every day","Every morning","Usually","On Sundays"], future:["Tomorrow","Next week","Next year","Next summer"]};
+const TENSE_HE = {past:"עבר", present:"הווה", future:"עתיד"};
+const vform = (v,t,third) => t==="past" ? v.past : t==="future" ? "will "+v.base : (third ? v.s : v.base);
+const typedFor = () => gi()>=3 && Math.random() < (gi()===3 ? 0.5 : 0.7);
+function tenseQ(){
+  const g = gi();
+  const pool = GRAM.verbs.filter(v => g===0 ? !v.irr : g===1 ? (!v.irr || v.easy) : true);
+  const v = pick(pool), sj = pick(SUBJ), t = pick(["past","present","future"]), mk = pick(MARK[t]);
+  const ans = vform(v,t,sj.third), sent = `${mk} ${sj.low} ___ ${v.c}.`, full = sent.replace("___", ans);
+  const why = t==="past" ? `"${E(mk)}" מסמן <b>עבר</b>. ${v.irr ? `${E(v.base)} הוא פועל יוצא דופן, ובעבר הוא ${E(v.past)}.` : `בעבר מוסיפים לפועל ${E("ed")}: ${E(v.past)}.`}`
+    : t==="present" ? `"${E(mk)}" מסמן <b>הווה פשוט</b>. ${sj.third ? `עם he / she / it (וגם ${E(sj.low)}) מוסיפים s לפועל: ${E(v.s)}.` : `עם I / you / we / they הפועל נשאר בלי שינוי: ${E(v.base)}.`}`
+    : `"${E(mk)}" מסמן <b>עתיד</b>: ${E("will")} + הפועל בלי שינוי: ${E("will "+v.base)}.`;
+  if(g<=1 && Math.random()<0.35)
+    return {key:"ti"+full, prompt:esc(full), instr:"באיזה זמן המשפט?", opts:["עבר","הווה","עתיד"], he:true, answer:TENSE_HE[t], explain:why, speak:full};
+  const typed = typedFor();
+  const cand = [vform(v,"past",sj.third), vform(v,"present",sj.third), vform(v,"future",sj.third), t==="present" ? (sj.third ? v.base : v.s) : null].filter(Boolean);
+  const opts = shuffle([ans, ...shuffle([...new Set(cand)].filter(o=>o!==ans)).slice(0,3)]);
+  return {key:"t"+full, prompt:B(esc(sent)) + (typed?` <span class="muted">(${esc(v.base)})</span>`:""), instr: typed?"כתבו את הפועל בזמן הנכון":"בחרו את צורת הפועל הנכונה", opts: typed?null:opts, answer:ans, alt: t==="future"?["'ll "+v.base]:[], explain:why, speak:full};
+}
+const RULE_G = {s:0, es:0, ies:1, ys:1, ves:2, irr:2, same:3};
+const RULE_HE = {s:"ברוב המילים פשוט מוסיפים s", es:"מילים שנגמרות ב-s, x, sh, ch או o מקבלות es", ies:"עיצור + y בסוף: מחליפים את ה-y ב-ies", ys:"תנועה + y בסוף (ay, ey, oy): רק מוסיפים s", ves:"f או fe בסוף הופכים ל-ves", irr:"צורת רבים יוצאת דופן, לומדים אותה בעל פה", same:"המילה זהה ביחיד וברבים"};
+function pluralQ(){
+  const n = pick(GRAM.nouns.filter(x=>RULE_G[x.r]<=gi())), typed = typedFor();
+  const wrong = [...new Set([n.sg+"s", n.sg+"es", n.sg.replace(/y$/,"ies"), n.sg.replace(/fe?$/,"ves"), n.sg])].filter(w=>w!==n.pl);
+  return {key:"p"+n.sg, prompt:`one ${esc(n.sg)} → two <span class="blank">___</span>`, instr:`${n.he}${typed?" · כתבו את צורת הרבים":" · מה צורת הרבים?"}`, opts: typed?null:shuffle([n.pl, ...shuffle(wrong).slice(0,2)]), answer:n.pl, explain:`${RULE_HE[n.r]}: ${E(n.sg+" → "+n.pl)}`, speak:`one ${n.sg}, two ${n.pl}`};
+}
+function completeQ(){
+  const g = gi(), pool = GRAM.complete[GRADES[g]].concat(g>0 ? GRAM.complete[GRADES[g-1]] : []);
+  const [sent,a,d1,d2,he] = pick(pool), full = sent.replace("___", a);
+  return {key:"c"+sent, prompt:B(esc(sent)), instr:"בחרו את המילה שמשלימה את המשפט", hint:he, opts:shuffle([a,d1,d2]), answer:a, explain:`${E(full)}<br>${esc(he)}`, speak:full};
+}
+function oppQ(){
+  const pool = gi()===0 ? GRAM.opp.slice(0,15) : GRAM.opp, p = pick(pool), flip = Math.random()<0.5;
+  const [w,a,hw,ha] = flip ? [p[1],p[0],p[3],p[2]] : p;
+  const others = shuffle(pool.filter(x=>x!==p).flatMap(x=>[x[0],x[1]])).slice(0,2);
+  return {key:"o"+w, prompt:esc(w), big:true, instr:"מה ההפך?", hint:hw, opts:shuffle([a,...others]), answer:a, explain:`${E(w)} (${hw}) ↔ ${E(a)} (${ha})`, speak:`${w}, ${a}`};
+}
+function prepQ(){
+  const [sent,a,d1,d2,he] = pick(GRAM.preps.filter(x=>+x[5]<=(gi()>=2?1:0))), full = sent.replace("___", a);
+  return {key:"r"+sent, prompt:B(esc(sent)), instr:he, opts:shuffle([a,d1,d2]), answer:a, explain:`${E(full)}<br>${esc(he)}`, speak:full};
+}
+const ART_HE = {v:"המילה מתחילה בצליל של תנועה (a, e, i, o, u), ולכן an", c:"המילה מתחילה בעיצור, ולכן a", h:"במילה hour ה-h לא נשמעת. המילה מתחילה בצליל תנועה, ולכן an", u:"המילה מתחילה בצליל 'יו', שהוא לא צליל של תנועה, ולכן a"};
+function artQ(){
+  const [w,a,he,t] = pick(GRAM.arts.filter(x=>gi()>=2 || x[3]==="v" || x[3]==="c"));
+  return {key:"a"+w, prompt:`<span class="blank">___</span> ${esc(w)}`, big:true, instr:`${he} · a או an?`, opts:["a","an"], answer:a, explain:`${ART_HE[t]}: ${E(a+" "+w)}`, speak:`${a} ${w}`};
+}
+const GEN = {tenses:tenseQ, plural:pluralQ, complete:completeQ, opposites:oppQ, preps:prepQ, articles:artQ};
+let G = null;
+function startGram(id){
+  const n = state.prefs.size==="all" ? 20 : (+state.prefs.size||10), seen = new Set(), qs = [];
+  for(let tries=0; qs.length<n && tries<400; tries++){ const q = GEN[id](); if(!seen.has(q.key)){ seen.add(q.key); qs.push(q); } }
+  G = {id, qs, i:0, score:0, done:false, ok:null, fb:"", showHint:false, typed:""};
+  go({name:"gramPlay"});
+}
+function gramHubView(){
+  const cards = GMODS.map(m=>{ const st = state.gram[m.id];
+    return `<button class="topic g-mod" data-gmod="${m.id}"><span class="emo g-ic" aria-hidden="true">${m.icon}</span><span style="flex:1;min-width:0"><b>${m.name}</b><br><span class="en muted" style="font-size:.85rem">${esc(m.ex)}</span></span>${st?`<span class="pill ${st.best>=80?"good":""} num">${st.best}%</span>`:""}</button>`; }).join("");
+  return `<button class="back" data-act="home">→ חזרה</button>
+  <div class="row spread"><h2>תרגול דקדוק</h2><button class="grade-chip" data-act="grade">כיתה ${esc(state.grade||"")} <span>שינוי</span></button></div>
+  <p class="muted">רמת הקושי מותאמת לכיתה. מכיתה ז' חלק מהשאלות דורשות כתיבה של התשובה.</p>
+  <div class="card">${sizeBar(false,"שאלות בסשן")}</div>
+  <div class="topics">${cards}</div>`;
+}
+function gramPlayView(){
+  const m = GMODS.find(x=>x.id===G.id);
+  if(G.i>=G.qs.length){
+    const pct = Math.round(G.score/G.qs.length*100);
+    return `<div class="card result"><span class="pill">${m.name}</span><div class="big num">${G.score}/${G.qs.length}</div>
+      <p>${pct===100?"מושלם!":pct>=70?"יפה מאוד!":"כדאי לתרגל את זה עוד קצת."}</p>
+      <div class="row"><button class="btn" data-act="gagain">עוד סשן</button><button class="btn soft" data-act="gram">לנושאים</button></div></div>`;
+  }
+  const q = G.qs[G.i], pct = Math.round(G.i/G.qs.length*100);
+  let ans = "";
+  if(q.opts){
+    ans = `<div class="choices">${q.opts.map((o,k)=>`<button class="choice ${q.he?"":"en"} ${G.done?(o===q.answer?"right":(G.pick===k?"wrong":"")):""}" data-gopt="${k}" ${G.done?"disabled":""}>${esc(o)}</button>`).join("")}</div>`;
+  } else {
+    ans = `<form id="gform" style="width:100%;display:flex;flex-direction:column;gap:10px">
+      <input id="gin" class="spell-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(G.typed)}" ${G.done?"disabled":""} aria-label="התשובה שלך">
+      ${G.done?"":`<button class="btn" type="submit">בדיקה</button>`}</form>`;
+  }
+  return `<div class="row spread"><button class="back" data-act="gram">→ יציאה</button><span class="pill">${m.name}</span></div>
+  <div class="progress"><span class="num muted">${G.i+1}/${G.qs.length}</span><div class="meter"><i style="width:${pct}%"></i></div></div>
+  <div class="card"><div class="q">
+    <div class="g-instr">${esc(q.instr)}</div>
+    <div class="g-prompt ${q.big?"big":""}">${q.prompt}</div>
+    ${q.hint&&!G.done?(G.showHint?`<div class="muted">${esc(q.hint)}</div>`:`<button class="hint-btn" data-act="ghint">רמז בעברית</button>`):""}
+    ${ans}
+    ${G.done?`<div class="feedback ${G.ok?"good":"bad"}" aria-live="polite">${G.ok?"נכון!":`התשובה הנכונה: ${E(q.answer)}`}</div>
+      <div class="explain">${q.explain}</div>
+      <div class="row" style="justify-content:center"><button class="btn small soft" data-act="gsay">🔊 השמעה</button><button class="btn" data-act="gnext" id="gnext">${G.i+1<G.qs.length?"הבא":"לסיכום"}</button></div>`:""}
+  </div></div>`;
+}
+function gramAnswer(ok){
+  const q = G.qs[G.i]; G.done = true; G.ok = ok; if(ok) G.score++;
+  if(G.i===G.qs.length-1){
+    const pct = Math.round((G.score)/G.qs.length*100), st = state.gram[G.id] || {best:0, plays:0};
+    state.gram[G.id] = {best:Math.max(st.best,pct), last:pct, plays:st.plays+1}; save();
+  }
+  render(); say(q.speak);
+  const n = $("#gnext"); if(n) n.focus();
 }
 
 /* ---------- kids picture game ---------- */
@@ -693,7 +875,9 @@ function kidsDoneView(){
 function render(){
   const app = $("#app");
   if(!state.grade && !["grade","kids","kidsGame"].includes(view.name)) view = {name:"grade"};
-  if(view.name==="kids") app.innerHTML = kidsStartView();
+  if(view.name==="gram") app.innerHTML = gramHubView();
+  else if(view.name==="gramPlay") app.innerHTML = gramPlayView();
+  else if(view.name==="kids") app.innerHTML = kidsStartView();
   else if(view.name==="kidsGame"){ app.innerHTML = kidsGameView(); if(K.i>=K.qs.length && !K.cheered){ K.cheered=true; speakSeq([["כל הכבוד! סיימת","he"]]); } }
   else if(view.name==="grade") app.innerHTML = gradeView();
   else if(view.name==="home") app.innerHTML = homeView();
@@ -704,6 +888,8 @@ function render(){
   else if(view.name==="edit") app.innerHTML = addView();
   const ph = $("#photo"); if(ph) ph.onchange = e => { const f=e.target.files[0]; if(f) readPhoto(f); };
   const sf = $("#spellform"); if(sf) sf.onsubmit = e => { e.preventDefault(); checkSpell(); };
+  const gf = $("#gform"); if(gf) gf.onsubmit = e => { e.preventDefault(); const v=$("#gin").value; if(!v.trim()) return; const q=G.qs[G.i]; G.typed=v; gramAnswer(norm(v)===norm(q.answer) || (q.alt||[]).some(a=>norm(a)===norm(v))); };
+  if(view.name==="gramPlay" && G && !G.done){ const gi_=$("#gin"); if(gi_) gi_.focus(); }
 }
 
 document.addEventListener("click", e=>{
@@ -722,7 +908,29 @@ document.addEventListener("click", e=>{
   if(d.kact==="exit"){ try{speechSynthesis.cancel()}catch(_){} K=null; return go({name:"kids"}); }
   if(d.kact==="say") return kidsSayWord();
   if(d.kact==="again") return kidsStart(K.cat);
-  if(d.topic){ draft.words = BANK[draft.bankGrade][d.topic].map(([en,he])=>({en,he,flag:false,note:""})); draft.name=d.topic; draft.grade=draft.bankGrade; draft.testDate=""; return render(); }
+  if(d.psize){ state.prefs.size = d.psize==="all" ? "all" : +d.psize; save(); return render(); }
+  if(d.porder){ state.prefs.order = d.porder; save(); return render(); }
+  if(d.grp!==undefined){
+    const l = state.lists.find(x=>x.id===view.id); if(!l) return;
+    if(mixActive(l)){ const k=+d.grp; MIX.set.has(k)?MIX.set.delete(k):MIX.set.add(k); }
+    else { l.sel = d.grp==="all" ? "all" : +d.grp; save(); }
+    return render();
+  }
+  if(d.gmod) return startGram(d.gmod);
+  if(d.gopt!==undefined && G && !G.done){ G.pick=+d.gopt; return gramAnswer(G.qs[G.i].opts[+d.gopt]===G.qs[G.i].answer); }
+  if(d.act==="gram"){ G=null; return go({name:"gram"}); }
+  if(d.act==="gagain") return startGram(G.id);
+  if(d.act==="ghint"){ G.showHint=true; return render(); }
+  if(d.act==="gsay") return say(G.qs[G.i].speak);
+  if(d.act==="gnext"){ G.i++; G.done=false; G.ok=null; G.typed=""; G.showHint=false; G.pick=null; return render(); }
+  if(d.act==="mix"){ const l=state.lists.find(x=>x.id===view.id); MIX = mixActive(l) ? {id:null,set:new Set()} : {id:l.id, set:new Set()}; return render(); }
+  if(d.topic){
+    const all = d.topic==="__all", topics = all ? Object.keys(BANK[draft.bankGrade]) : [d.topic];
+    draft.words = topics.flatMap(t=>BANK[draft.bankGrade][t]).map(([en,he])=>({en,he,flag:false,note:""}));
+    draft.groupNames = topics.flatMap(t=>{ const k=Math.ceil(BANK[draft.bankGrade][t].length/GSIZE); return Array.from({length:k},(_,i)=>k>1?`${t} ${i+1}`:t); });
+    draft.origLen = draft.words.length;
+    draft.name = all ? `כל המאגר – כיתה ${draft.bankGrade}` : d.topic; draft.grade=draft.bankGrade; draft.testDate=""; return render();
+  }
   if(d.del!==undefined){ syncDraftInputs(); draft.words.splice(+d.del,1); return render(); }
   if(d.pick!==undefined && P){
     const it=P.items[P.i]; if(it.done) return;
@@ -763,6 +971,8 @@ function saveEdit(){
   if(words.some(w=>!w.he)){ draft.err="חסר תרגום לחלק מהמילים."; return render(); }
   const old = Object.fromEntries(l.words.map(w=>[w.id,w]));
   l.words = words.map(w=>{ const o=w.id&&old[w.id]; if(o && o.en===w.en){ o.he=w.he; return o; } return mkWord(w.en,w.he); });
+  if(l.words.length!==Object.keys(old).length) delete l.groupNames;
+  l.sel = "all";
   l.name = draft.name.trim()||l.name; l.grade=draft.grade; l.testDate=draft.testDate; l.example=false;
   save(); const id=l.id; draft=null; go({name:"list", id});
 }
