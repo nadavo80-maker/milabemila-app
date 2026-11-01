@@ -174,6 +174,11 @@ textarea{min-height:140px;resize:vertical}
 .seg.small{gap:5px}
 .seg.small button{padding:5px 9px;font-size:.86rem;border-radius:10px}
 .gram-entry{background:var(--accent-soft);color:var(--ink)}
+.dict-entry{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
+.dict-row{display:grid;grid-template-columns:40px 1fr 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.dict-row>.muted{grid-column:2/4}
+.dict-row .dots{grid-row:1;grid-column:4}
+.dict-row:last-child{border-bottom:0}
 .focus-entry{background:var(--bad-soft);color:var(--ink);border:1.5px solid var(--bad)}
 .alert{border:1.5px solid var(--bad);background:var(--bad-soft)}
 .alert.ok{border-color:var(--good);background:var(--good-soft)}
@@ -339,6 +344,7 @@ function homeView(){
   return `${header("home")}
   <button class="btn" data-act="add">+ רשימה חדשה מהמורה</button>
   ${focusCount()?`<button class="kids-entry focus-entry" data-act="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק נקודות חלשות</b>${focusSummary()}</span></button>`:""}
+  <button class="kids-entry dict-entry" data-act="dict"><span class="em emo" aria-hidden="true">📖</span><span><b>כל אוצר המילים</b>${(DICT||dictAll()).length} מילים מכל הכיתות, עם חיפוש והשמעה</span></button>
   <button class="kids-entry gram-entry" data-act="gram"><span class="em emo" aria-hidden="true">✍️</span><span><b>תרגול דקדוק</b>זמנים, יחיד ורבים, השלמת משפטים ועוד</span></button>
   <button class="kids-entry" data-kact="start"><span class="em emo" aria-hidden="true">🧸</span><span><b>משחק לקטנים</b>מילים ראשונות בתמונות, מגן עד כיתה ב'</span></button>
   ${cards || `<div class="card"><p>עוד אין רשימות. צלמו את דף המילים מהמורה או הקלידו אותו, ונתחיל לתרגל.</p></div>`}`;
@@ -737,6 +743,46 @@ function parentView(){
   <div id="resetbox" hidden class="card"><p>למחוק את כל הרשימות וההתקדמות במכשיר הזה?</p><div class="row"><button class="btn small" data-act="reset">כן, לאפס</button><button class="btn small soft" data-act="reset-cancel">ביטול</button></div></div>`;
 }
 
+/* ---------- full vocabulary ---------- */
+let DQ = {q:"", g:"all", t:"all"};
+function dictAll(){
+  const out=[];
+  for(const g of GRADES) for(const [t,ws] of Object.entries(BANK[g])) for(const [en,he] of ws) out.push({en,he,g,t});
+  for(const c of KIDS) for(const [en,he,em] of c.words) out.push({en,he,g:"kids",t:c.name,em});
+  return out;
+}
+let DICT = null;
+function bestBox(en){ let b=-1; for(const l of state.lists) for(const w of l.words) if(w.en===en && w.box>b) b=w.box; return b; }
+function dictFiltered(){
+  DICT = DICT || dictAll();
+  const q = DQ.q.trim().toLowerCase();
+  return DICT.filter(w=>(DQ.g==="all"||w.g===DQ.g) && (DQ.t==="all"||w.t===DQ.t) && (!q || w.en.toLowerCase().includes(q) || w.he.includes(q)));
+}
+function dictResults(){
+  const r = dictFiltered(), shown = r.slice(0,200);
+  const gl = g => g==="kids" ? "גן–ב'" : g;
+  return `<p class="muted num">${r.length} מילים${r.length>200?" · מוצגות 200 הראשונות, אפשר לצמצם בחיפוש":""}</p>
+  <div class="words">${shown.map(w=>{ const bx=bestBox(w.en); return `<div class="dict-row">
+    <button class="icon-btn" data-sayw="${esc(w.en)}" aria-label="השמעת ${esc(w.en)}">🔊</button>
+    <span class="en"><b>${w.em?`<span class="emo">${w.em}</span> `:""}${esc(w.en)}</b></span>
+    <span>${esc(w.he)}</span>
+    <span class="muted" style="font-size:.8rem">${gl(w.g)} · ${esc(w.t)}</span>
+    ${bx>=0?dots(bx):"<span></span>"}</div>`; }).join("")}</div>
+  ${r.length?`<button class="btn soft" data-act="dictpractice">יצירת רשימה לתרגול מ-${r.length} המילים האלה</button>`:`<p>לא נמצאו מילים. נסו חיפוש אחר.</p>`}`;
+}
+function dictView(){
+  const gs = ["all",...GRADES,"kids"].map(g=>`<button data-dg="${g}" aria-pressed="${DQ.g===g}">${g==="all"?"הכול":g==="kids"?"גן–ב'":"כיתה "+g}</button>`).join("");
+  const topics = DQ.g==="all" ? [] : DQ.g==="kids" ? KIDS.map(c=>c.name) : Object.keys(BANK[DQ.g]);
+  return `<button class="back" data-act="home">→ חזרה</button>
+  <h2>כל אוצר המילים</h2>
+  <div class="card">
+    <div class="field"><label for="dq">חיפוש באנגלית או בעברית</label><input type="text" id="dq" value="${esc(DQ.q)}" placeholder="למשל: journey או מסע" autocomplete="off"></div>
+    <div class="setrow"><span class="muted">כיתה</span><div class="seg small">${gs}</div></div>
+    ${topics.length?`<div class="setrow"><span class="muted">נושא</span><div class="seg small"><button data-dt="all" aria-pressed="${DQ.t==="all"}">כל הנושאים</button>${topics.map(t=>`<button data-dt="${esc(t)}" aria-pressed="${DQ.t===t}">${esc(t)}</button>`).join("")}</div></div>`:""}
+  </div>
+  <div id="dres">${dictResults()}</div>`;
+}
+
 /* ---------- grammar ---------- */
 const GMODS = [
   {id:"tenses", icon:"⏳", name:"עבר, הווה ועתיד", ex:"Yesterday I ___ to school."},
@@ -989,7 +1035,8 @@ function kidsDoneView(){
 function render(){
   const app = $("#app");
   if(!state.grade && !["grade","kids","kidsGame"].includes(view.name)) view = {name:"grade"};
-  if(view.name==="focus") app.innerHTML = focusView();
+  if(view.name==="dict") app.innerHTML = dictView();
+  else if(view.name==="focus") app.innerHTML = focusView();
   else if(view.name==="gram") app.innerHTML = gramHubView();
   else if(view.name==="gramPlay") app.innerHTML = gramPlayView();
   else if(view.name==="kids") app.innerHTML = kidsStartView();
@@ -1003,6 +1050,7 @@ function render(){
   else if(view.name==="edit") app.innerHTML = addView();
   const ph = $("#photo"); if(ph) ph.onchange = e => { const f=e.target.files[0]; if(f) readPhoto(f); };
   const sf = $("#spellform"); if(sf) sf.onsubmit = e => { e.preventDefault(); checkSpell(); };
+  const dq = $("#dq"); if(dq) dq.oninput = e => { DQ.q = e.target.value; $("#dres").innerHTML = dictResults(); };
   const gf = $("#gform"); if(gf) gf.onsubmit = e => { e.preventDefault(); const v=$("#gin").value; if(!v.trim()) return; const q=G.qs[G.i]; G.typed=v; gramAnswer(norm(v)===norm(q.answer) || (q.alt||[]).some(a=>norm(a)===norm(v)), v.trim()); };
   if(view.name==="gramPlay" && G && !G.done){ const gi_=$("#gin"); if(gi_) gi_.focus(); }
 }
@@ -1033,6 +1081,17 @@ document.addEventListener("click", e=>{
   }
   if(d.gmod) return startGram(d.gmod);
   if(d.act==="focus") return go({name:"focus"});
+  if(d.act==="dict") return go({name:"dict"});
+  if(d.dg){ DQ.g=d.dg; DQ.t="all"; return render(); }
+  if(d.dt){ DQ.t=d.dt; return render(); }
+  if(d.sayw) return say(d.sayw);
+  if(d.act==="dictpractice"){
+    const r = dictFiltered(); newDraft(); draft.src="bank";
+    draft.words = r.map(w=>({en:w.en, he:w.he, flag:false, note:""}));
+    const label = DQ.q.trim() ? `חיפוש: ${DQ.q.trim()}` : DQ.t!=="all" ? DQ.t : DQ.g==="all" ? "כל אוצר המילים" : DQ.g==="kids" ? "מילים לקטנים" : `כל המאגר – כיתה ${DQ.g}`;
+    draft.name = label; if(GRADES.includes(DQ.g)) draft.grade = DQ.g; draft.testDate = "";
+    return go({name:"add"});
+  }
   if(d.focuslist){ view = {name:"list", id:d.focuslist}; return startPractice("focus"); }
   if(d.gopt!==undefined && G && !G.done){ G.pick=+d.gopt; { const o=G.qs[G.i].opts[+d.gopt]; return gramAnswer(o===G.qs[G.i].answer, o); } }
   if(d.act==="gram"){ G=null; return go({name:"gram"}); }
