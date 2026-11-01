@@ -17,7 +17,7 @@
 <style>
 /* Layout: one narrow app column, like a pocket vocabulary notebook; teal ink + yellow highlighter marker */
 :root{
-  --bg:#F3F6F8; --surface:#FFFFFF; --ink:#18242E; --muted:#5A6B78; --line:#DCE3E9;
+  --bg:#FFFFFF; --surface:#FFFFFF; --ink:#18242E; --muted:#5A6B78; --line:#DCE3E9;
   --accent:#0E7472; --accent-ink:#FFFFFF; --accent-soft:#D9EFEE;
   --marker:#FFD84D; --marker-ink:#2B2300;
   --good:#1E8E4E; --good-soft:#DDF3E5; --bad:#C93C3C; --bad-soft:#FBE3E3;
@@ -182,6 +182,7 @@ textarea{min-height:140px;resize:vertical}
 .seg.small{gap:5px}
 .seg.small button{padding:5px 9px;font-size:.86rem;border-radius:10px}
 .gram-entry{background:var(--accent-soft);color:var(--ink)}
+.add-photo summary{cursor:pointer;color:var(--accent);font-weight:700}
 .dict-entry{background:var(--surface);color:var(--ink);border:1.5px solid var(--line)}
 .dict-row{display:grid;grid-template-columns:40px 1fr 1fr auto;gap:4px 10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .dict-row>.muted{grid-column:2/4}
@@ -370,7 +371,6 @@ function header(active){
 
 function homeView(){
   const lists = myLists().sort((a,b)=>(daysTo(a.testDate)??99)-(daysTo(b.testDate)??99));
-  const other = state.lists.length - lists.length;
   const cards = lists.map(l=>{
     const r = readiness(l), d = daysTo(l.testDate);
     const soon = d!==null && d>=0 && d<=1;
@@ -381,15 +381,29 @@ function homeView(){
       <div class="meter"><i style="width:${r}%"></i></div>
     </button>`;
   }).join("");
-  return `${header("home")}
+  return `<h2>כיתה ${esc(state.grade)}</h2>
   <button class="btn" data-act="add">+ רשימה חדשה מהמורה</button>
-  ${focusCount()?`<button class="kids-entry focus-entry" data-act="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק נקודות חלשות</b>${focusSummary()}</span></button>`:""}
-  <button class="kids-entry dict-entry" data-act="dict"><span class="em emo" aria-hidden="true">📖</span><span><b>אוצר המילים של כיתה ${esc(state.grade)}</b>${bankAll(state.grade).length} מילים, עם חיפוש והשמעה</span></button>
-  <button class="kids-entry gram-entry" data-act="gram"><span class="em emo" aria-hidden="true">✍️</span><span><b>תרגול דקדוק</b>זמנים, יחיד ורבים, השלמת משפטים ועוד</span></button>
   ${cards || `<div class="card"><p>עוד אין רשימות לכיתה ${esc(state.grade)}. צלמו את דף המילים מהמורה, הקלידו אותו, או בחרו נושא מהמאגר.</p></div>`}
-  ${other?`<p class="muted" style="font-size:.9rem">${other===1?"יש עוד רשימה אחת בכיתה אחרת. היא מופיעה":`יש עוד ${other} רשימות בכיתות אחרות. הן מופיעות`} כשבוחרים את הכיתה במסך הראשי.</p>`:""}`;
+  ${gradeMore()}
+  ${parentLink()}`;
 }
 
+function gradeMore(){
+  return `<h3>עוד בכיתה ${esc(state.grade)}</h3>
+  ${focusCount()?`<button class="kids-entry focus-entry" data-act="focus"><span class="em emo" aria-hidden="true">💪</span><span><b>חיזוק נקודות חלשות</b>${focusSummary()}</span></button>`:""}
+  <button class="kids-entry gram-entry" data-act="gram"><span class="em emo" aria-hidden="true">✍️</span><span><b>תרגול דקדוק</b>זמנים, יחיד ורבים, השלמת משפטים ועוד</span></button>
+  <button class="kids-entry dict-entry" data-act="dict"><span class="em emo" aria-hidden="true">📖</span><span><b>אוצר המילים של כיתה ${esc(state.grade)}</b>${bankAll(state.grade).length} מילים, עם חיפוש והשמעה</span></button>`;
+}
+function parentLink(){
+  const other = state.lists.length - myLists().length;
+  return `<button class="btn ghost" data-tab="parent">📊 דוח להורה</button>
+  ${other?`<p class="muted" style="font-size:.9rem">${other===1?"יש עוד רשימה אחת בכיתה אחרת. היא מופיעה":`יש עוד ${other} רשימות בכיתות אחרות. הן מופיעות`} כשבוחרים את הכיתה במסך הראשי.</p>`:""}`;
+}
+function pickGradeList(){
+  const mine = myLists(), last = (state.lastList||{})[state.grade];
+  return mine.find(l=>l.id===last) || mine.slice().sort((a,b)=>{ const k=d=>d===null?999:(d<0?500-d:d); return k(daysTo(a.testDate))-k(daysTo(b.testDate)); })[0];
+}
+function goGradePage(){ const l = pickGradeList(); go(l ? {name:"list", id:l.id} : {name:"home"}); }
 function listView(){
   const l = state.lists.find(x=>x.id===view.id); if(!l) return go({name:"home"});
   if(!state.lastList) state.lastList = {};
@@ -405,7 +419,8 @@ function listView(){
   const pool = activePool(l);
   const rows = pool.slice().sort((a,b)=>a.box-b.box).map(w=>`<div class="word-row">
     <span class="en">${esc(w.en)}</span><span>${esc(w.he)}</span>${dots(w.box)}</div>`).join("");
-  return `<button class="btn soft small" data-act="home" style="align-self:flex-start">☰ כל האפשרויות של כיתה ${esc(state.grade||"")}</button>
+  const mine = myLists();
+  return `<div class="setrow"><span class="muted">הרשימות של כיתה ${esc(state.grade)}</span><div class="seg small">${mine.map(x=>`<button data-open="${x.id}" aria-pressed="${x.id===l.id}">${esc(x.name)} <span class="muted num">${readiness(x)}%</span></button>`).join("")}<button data-act="add">+ רשימה חדשה</button></div></div>
   <div class="card">
     <div class="row spread"><h2>${esc(l.name)}</h2>${l.example?'<span class="pill marker">דוגמה</span>':""}</div>
     <div class="row"><span class="pill">כיתה ${esc(l.grade||"")}</span><span class="pill">${dueLabel(l.testDate)||"בלי תאריך מבחן"}</span></div>
@@ -425,10 +440,12 @@ function listView(){
     ${orderBar()}
     </div>
   </details>
+  ${gradeMore()}
   <div class="card"><div class="row spread"><h3>${pool.length<l.words.length?`המילים שנבחרו (${pool.length})`:`המילים ברשימה (${l.words.length})`}</h3><button class="btn small soft" data-act="edit">עריכה</button></div>
   <div class="words">${rows}</div></div>
   <button class="btn ghost small" data-act="delete-ask">מחיקת הרשימה</button>
-  <div id="delbox" hidden class="card"><p>למחוק את "${esc(l.name)}" עם כל ההתקדמות?</p><div class="row"><button class="btn small" data-act="delete">כן, למחוק</button><button class="btn small soft" data-act="delete-cancel">ביטול</button></div></div>`;
+  <div id="delbox" hidden class="card"><p>למחוק את "${esc(l.name)}" עם כל ההתקדמות?</p><div class="row"><button class="btn small" data-act="delete">כן, למחוק</button><button class="btn small soft" data-act="delete-cancel">ביטול</button></div></div>
+  ${parentLink()}`;
 }
 
 /* ---------- child's grade ---------- */
@@ -457,9 +474,7 @@ function setGrade(g){
     state.lists.push({id:uid(), name:t, grade:g, testDate:"", starter:true, words:ws.map(([en,he])=>mkWord(en,he)), groupNames:Array.from({length:Math.ceil(ws.length/GSIZE)},(_,i)=>`${t} ${i+1}`)});
     save();
   }
-  const mine = myLists(), last = (state.lastList||{})[g];
-  const pickL = mine.find(l=>l.id===last) || mine.slice().sort((a,b)=>{ const da=daysTo(a.testDate), db=daysTo(b.testDate); const k=d=>d===null?999:(d<0?500-d:d); return k(da)-k(db); })[0];
-  go(pickL ? {name:"list", id:pickL.id} : {name:"home"});
+  goGradePage();
 }
 
 /* ---------- internet spelling, translation and photo reading (website only) ---------- */
@@ -561,21 +576,67 @@ function extractWords(text){
   }
   return out.slice(0,60);
 }
+function photoButtons(){
+  return `<div class="row" style="justify-content:center">
+    <label class="btn" for="photoCam">📷 צילום עכשיו</label><input id="photoCam" class="photo-in" type="file" accept="image/*" capture="environment" hidden>
+    <label class="btn soft" for="photoGal">🖼️ בחירה מהגלריה</label><input id="photoGal" class="photo-in" type="file" accept="image/*" hidden>
+  </div>`;
+}
+function onPhoto(file){ if(window.claude && sample && canImages) readPhoto(file); else if(NET) ocrPhoto(file); }
+function mergeWords(list){
+  // replace the draft words on a new list, append (without duplicates) when adding to existing words
+  const had = new Set(draft.words.map(w=>w.en.trim().toLowerCase()));
+  const fresh = list.filter(w=>w.en && !had.has(w.en.trim().toLowerCase()));
+  draft.words = draft.words.concat(fresh);
+  return fresh.length;
+}
+/* image cleanup before reading: straighten size, grey, then adaptive black-and-white */
+async function prepImage(file){
+  const img = await createImageBitmap(file);
+  const scale = Math.min(3, 2400/Math.max(img.width, img.height));
+  const c = document.createElement("canvas"); c.width = Math.round(img.width*scale); c.height = Math.round(img.height*scale);
+  const x = c.getContext("2d"); x.drawImage(img, 0, 0, c.width, c.height);
+  const W=c.width, H=c.height, d=x.getImageData(0,0,W,H), p=d.data, g=new Uint8ClampedArray(W*H);
+  for(let i=0,j=0;i<p.length;i+=4,j++) g[j] = 0.299*p[i]+0.587*p[i+1]+0.114*p[i+2];
+  const I = new Float64Array((W+1)*(H+1));            // integral image for local averages
+  for(let y=1;y<=H;y++){ let row=0; for(let xx=1;xx<=W;xx++){ row+=g[(y-1)*W+xx-1]; I[y*(W+1)+xx]=I[(y-1)*(W+1)+xx]+row; } }
+  const r = Math.max(8, Math.round(Math.min(W,H)/24)), T = 0.13;
+  for(let y=0;y<H;y++){ const y1=Math.max(0,y-r), y2=Math.min(H-1,y+r);
+    for(let xx=0;xx<W;xx++){ const x1=Math.max(0,xx-r), x2=Math.min(W-1,xx+r), n=(x2-x1+1)*(y2-y1+1);
+      const sum = I[(y2+1)*(W+1)+x2+1]-I[y1*(W+1)+x2+1]-I[(y2+1)*(W+1)+x1]+I[y1*(W+1)+x1];
+      const v = g[y*W+xx]*n < sum*(1-T) ? 0 : 255, k=(y*W+xx)*4; p[k]=p[k+1]=p[k+2]=v; } }
+  x.putImageData(d,0,0);
+  return await new Promise(res=>c.toBlob(res,"image/png"));
+}
+function linesFromData(data){
+  // keep only words Tesseract is fairly sure about, line by line
+  const out=[];
+  for(const b of (data.blocks||[])) for(const pa of (b.paragraphs||[])) for(const ln of (pa.lines||[])){
+    const t = (ln.words||[]).filter(w=>w.confidence>=55).map(w=>w.text).join(" ");
+    if(t.trim()) out.push(t);
+  }
+  return out.length ? out.join("\n") : (data.text||"");
+}
 async function ocrPhoto(file){
-  draft.err=""; draft.busy="טוען את קורא הטקסט..."; render();
+  draft.err=""; draft.busy="מכין את התמונה לקריאה..."; render();
   try{
     if(!window.Tesseract) await loadScript("https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js");
+    const clean = await prepImage(file).catch(()=>file);
+    setBusy("טוען את קורא הטקסט...");
     const worker = await Tesseract.createWorker("eng", 1, {logger:m=>{ if(m.status==="recognizing text") setBusy(`קורא את הדף... ${Math.round(m.progress*100)}%`); }});
-    const { data } = await worker.recognize(file);
+    await worker.setParameters({ tessedit_pageseg_mode: "4", preserve_interword_spaces: "1" });
+    const { data } = await worker.recognize(clean, {}, {text:true, blocks:true});
     await worker.terminate();
-    const words = extractWords(data.text);
+    const words = extractWords(linesFromData(data));
     if(!words.length) throw new Error("no words");
-    draft.words = words.map(en=>({en, he:"", flag:false, note:""}));
+    const before = draft.words.length, added = mergeWords(words.map(en=>({en, he:"", flag:false, note:""})));
     if(!draft.name) draft.name = "רשימה מצילום";
-    draft.busy=false; render();
+    draft.busy=false;
+    if(before && !added) draft.err="כל המילים שבתמונה כבר נמצאות ברשימה.";
+    render();
     await netCheck();
   }catch(e){
-    draft.busy=false; draft.err="לא הצלחתי לקרוא מילים מהתמונה. נסו צילום ישר, מואר וחד של דף מודפס, או הקלידו את המילים."; render();
+    draft.busy=false; draft.err="לא הצלחתי לקרוא מילים מהתמונה. כדאי לצלם מקרוב, ישר מעל הדף, באור טוב ובלי צל. דף מודפס נקרא הרבה יותר טוב מכתב יד."; render();
   }
 }
 
@@ -609,15 +670,13 @@ function addView(){
     body = photoOK ? `<div class="drop">
         <p><b>מצלמים את דף המילים מהמורה</b></p>
         <p class="muted">Claude יקרא את המילים ויציע תרגום. אתם מאשרים לפני שמתחילים.</p>
-        <label class="btn" for="photo">בחירת תמונה</label>
-        <input id="photo" type="file" accept="image/*" hidden>
+        ${photoButtons()}
       </div>` : window.claude ? `<div class="note">${sample===null ? "בודק אם קריאת תמונות זמינה..." : "קריאת תמונה לא זמינה כאן. אפשר להקליד את הרשימה."}</div>`
       : `<div class="drop">
         <p><b>מצלמים את דף המילים מהמורה</b></p>
         <p class="muted">הטלפון קורא את המילים באנגלית מהתמונה, ואז בודקים איות ומוסיפים תרגום מהאינטרנט. אתם מאשרים לפני שמתחילים.</p>
-        <label class="btn" for="photo2">צילום או בחירת תמונה</label>
-        <input id="photo2" type="file" accept="image/*" hidden>
-        <p class="muted" style="font-size:.85rem">עובד הכי טוב על דף מודפס, ישר ומואר. בכתב יד הקריאה פחות מדויקת. בפעם הראשונה הטעינה לוקחת כמה שניות.</p>
+        ${photoButtons()}
+        <p class="muted" style="font-size:.85rem">טיפים: לצלם מקרוב וישר מעל הדף, באור טוב ובלי צל, כך שהמילים ימלאו את התמונה. דף מודפס נקרא הרבה יותר טוב מכתב יד.</p>
       </div>`;
   } else if (draft.src==="type"){
     body = `<div class="field"><label for="typed">מילה בכל שורה. אפשר להוסיף תרגום אחרי מקף, וכמה פירושים עם / ביניהם (למשל: save - לשמור / לחסוך).</label>
@@ -657,6 +716,7 @@ function reviewBlock(){
     <h3>בדיקת המילים לפני תרגול</h3>
     <div class="note">${[warn?`${warn} מילים מסומנות באדום: כדאי לבדוק את האיות שלהן.`:"", auto?`${auto} תרגומים אוטומטיים מסומנים בצהוב. למילה יכולים להיות כמה פירושים (מופרדים ב-/). אפשר להשאיר את כולם או למחוק פירוש שלא מתאים.`:"", flagged?`${flagged} מילים מסומנות בצהוב כי יש להן יותר ממשמעות אחת. כתבו את התרגום שהמורה ביקשה.`:""].filter(Boolean).join("<br>") || "בדקו שהתרגום תואם למה שהמורה לימדה. אפשר לתקן כל שורה."}</div>
     <div style="display:flex;flex-direction:column;gap:8px">${rows}</div>
+    ${(NET || (window.claude && sample && canImages)) ? `<details class="add-photo"><summary>📷 הוספת מילים מצילום</summary><div style="margin-top:8px">${photoButtons()}</div></details>` : ""}
     <div class="row"><button class="btn small soft" data-act="addrow">+ מילה</button>${NET?`<button class="btn small soft" data-act="netcheck">בדיקת איות ותרגום באינטרנט</button>`:""}</div>
     <div class="field"><label for="lname">שם הרשימה</label><input type="text" id="lname" value="${esc(draft.name)}" placeholder="למשל: יחידה 5"></div>
     <div class="row" style="align-items:flex-end">
@@ -685,7 +745,7 @@ async function readPhoto(file){
       `Give the school meaning in Hebrew; if the word has a second common meaning add it after " / " (at most two). No Hebrew meaning may appear for two different words: if it would, add a short clarification in parentheses, e.g. "קל (במשקל)". Reply with only a JSON array like [{"en":"journey","he":"מסע","flag":false,"note":""}].`,
       {images:[file], modelTier:"default"});
     if(!Array.isArray(data) || !data.length) throw {code:"invalid_json"};
-    draft.words = data.filter(x=>x && x.en).map(x=>({en:String(x.en).trim(), he:String(x.he||"").trim(), flag:!!x.flag, note:String(x.note||"")}));
+    mergeWords(data.filter(x=>x && x.en).map(x=>({en:String(x.en).trim(), he:String(x.he||"").trim(), flag:!!x.flag, note:String(x.note||"")})));
     if(!draft.name) draft.name = "רשימה מהמורה";
   } catch(e) { draft.err = errCopy(e && e.code); }
   draft.busy=false; render();
@@ -957,7 +1017,7 @@ function parentView(){
 
   const kidsCard = kidsHard.length ? `<div class="card"><h3>משחק לקטנים: מילים שקשה לזהות</h3><div class="row" style="gap:8px">${kidsHard.slice(0,12).map(([k,v])=>{const [en,em]=k.split("|"); return `<span class="pill bad"><span class="emo">${em}</span> <span class="en">${esc(en)}</span> · ${v.w}</span>`}).join("")}</div></div>` : "";
 
-  return `${header("parent")}
+  return `<h2>דוח להורה · כיתה ${esc(state.grade)}</h2>
   <div class="card row spread"><span>כיתת הילד: <b>${esc(state.grade||"")}</b></span><button class="btn small soft" data-act="grade">החלפת כיתה</button></div>
   ${summary}
   <p class="muted">מוכנות עולה כשהילד עונה נכון על אותה מילה כמה פעמים, ויורדת כשהוא טועה. מילה נחשבת בעייתית כשהוא טעה בה והיא עוד לא יושבת.</p>
@@ -1280,7 +1340,7 @@ function render(){
   else if(view.name==="edit") app.innerHTML = addView();
   if(!["grade","kidsGame"].includes(view.name)) app.insertAdjacentHTML("afterbegin", topBar());
   const ph = $("#photo"); if(ph) ph.onchange = e => { const f=e.target.files[0]; if(f) readPhoto(f); };
-  const ph2 = $("#photo2"); if(ph2) ph2.onchange = e => { const f=e.target.files[0]; if(f) ocrPhoto(f); };
+  document.querySelectorAll(".photo-in").forEach(inp=>{ inp.onchange = e => { syncDraftInputs(); const f=e.target.files[0]; if(f) onPhoto(f); }; });
   const sf = $("#spellform"); if(sf) sf.onsubmit = e => { e.preventDefault(); checkSpell(); };
   const dq = $("#dq"); if(dq) dq.oninput = e => { DQ.q = e.target.value; $("#dres").innerHTML = dictResults(); };
   const gf = $("#gform"); if(gf) gf.onsubmit = e => { e.preventDefault(); const v=$("#gin").value; if(!v.trim()) return; const q=G.qs[G.i]; G.typed=v; gramAnswer(norm(v)===norm(q.answer) || (q.alt||[]).some(a=>norm(a)===norm(v)), v.trim()); };
@@ -1362,7 +1422,7 @@ document.addEventListener("click", e=>{
     const n=$("#nextbtn"); if(n) n.focus(); return;
   }
   switch(d.act){
-    case "home": draft=null; return go({name:"home"});
+    case "home": draft=null; return goGradePage();
     case "add": newDraft(); return go({name:"add"});
     case "parse": syncDraftInputs(); return parseTyped();
     case "grade": return go({name:"grade"});
@@ -1371,7 +1431,7 @@ document.addEventListener("click", e=>{
     case "edit": { const l=state.lists.find(x=>x.id===view.id); draft={src:"type",name:l.name,grade:l.grade,testDate:l.testDate,words:l.words.map(w=>({en:w.en,he:w.he,flag:false,note:"",id:w.id})),typed:"",busy:false,err:"",bankGrade:"ו'",editId:l.id}; return go({name:"edit", id:l.id}); }
     case "delete-ask": $("#delbox").hidden=false; return;
     case "delete-cancel": $("#delbox").hidden=true; return;
-    case "delete": state.lists=state.lists.filter(x=>x.id!==view.id); save(); return go({name:"home"});
+    case "delete": state.lists=state.lists.filter(x=>x.id!==view.id); save(); return goGradePage();
     case "reset-ask": $("#resetbox").hidden=false; return;
     case "reset-cancel": $("#resetbox").hidden=true; return;
     case "reset": state={grade:null, lists:[], prefs:{size:10,order:"weak"}, gram:{}, gsG:{}, gramG:{}}; save(); return go({name:"home"});
