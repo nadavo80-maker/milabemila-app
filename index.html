@@ -830,10 +830,10 @@ function practiceView(){
     q = `<button class="speak" data-act="say" aria-label="השמעה">🔊</button>
       <div class="prompt en">${esc(w.en)}</div>
       <button class="btn small soft" data-act="slow">השמעה איטית</button>
-      <div class="choices">${it.opts.map((o,k)=>`<button class="choice ${it.done?(o===w.he?"right":(it.pick===k?"wrong":"")):""}" data-pick="${k}" ${it.done?"disabled":""}>${esc(o)}</button>`).join("")}</div>`;
+      <div class="choices">${it.opts.map((o,k)=>`<button class="choice ${(it.wrongPicks||[]).includes(k)?"wrong":""} ${it.done&&o===w.he?"right":""}" data-pick="${k}" ${it.done||(it.wrongPicks||[]).includes(k)?"disabled":""}>${esc(o)}</button>`).join("")}</div>`;
   } else if(it.m==="reverse"){
     q = `<p class="muted">איך אומרים באנגלית?</p><div class="prompt he">${esc(w.he)}</div>
-      <div class="choices">${it.opts.map((o,k)=>`<button class="choice en ${it.done?(o===w.en?"right":(it.pick===k?"wrong":"")):""}" data-pick="${k}" ${it.done?"disabled":""}>${esc(o)}</button>`).join("")}</div>`;
+      <div class="choices">${it.opts.map((o,k)=>`<button class="choice en ${(it.wrongPicks||[]).includes(k)?"wrong":""} ${it.done&&o===w.en?"right":""}" data-pick="${k}" ${it.done||(it.wrongPicks||[]).includes(k)?"disabled":""}>${esc(o)}</button>`).join("")}</div>`;
   } else {
     const isSpell = it.m==="spell";
     q = `${isSpell?`<button class="speak" data-act="say" aria-label="השמעה">🔊</button><div class="row"><button class="btn small soft" data-act="slow">השמעה איטית</button><span class="muted">רמז: ${esc(w.he)}</span></div>`:`<p class="muted">כתבו באנגלית</p><div class="prompt he">${esc(w.he)}</div>`}
@@ -865,14 +865,22 @@ function letterDiff(typed, target){
   return ops.reverse().map(([c,ch])=>`<span class="${c}">${esc(ch===" "?"·":ch)}</span>`).join("");
 }
 
+// two attempts per word: the first mistake costs a little, the second shows the answer
+function firstMiss(it){ it.tries=1; it.w.wrong++; it.w.box=Math.max(0,it.w.box-1); touchList(); save(); }
+function finalMiss(it){ it.w.wrong++; it.w.box=Math.max(0,it.w.box-1); it.ok=false; it.done=true; touchList(); save(); }
+function retryHit(it){ it.ok=true; it.done=true; touchList(); save(); }   // right on the second try: no penalty, no bonus
+function touchList(){ const L=state.lists.find(x=>x.id===P.listId); if(L) L.untouched=false; }
 function checkSpell(){
   const it = P.items[P.i]; const v = $("#spell").value; it.typed = v;
   if(!v.trim()) return;
   const ok = norm(v)===norm(it.w.en);
-  it.tries++;
-  if(ok){ grade(it,true); it.diff=letterDiff(v,it.w.en); P.feedback="מצוין! נכון."; P.fbClass="good"; render(); autoNext(it); return; }
-  else if(it.m==="spell" && it.tries<2){ it.diff=letterDiff(v,it.w.en); P.feedback="כמעט. האותיות באדום לא במקום. נסו שוב."; P.fbClass="bad"; it.typed=""; }
-  else { it.w.miss = v.trim(); grade(it,false); it.diff=letterDiff(it.w.en,it.w.en); P.feedback=`התשובה הנכונה: ${esc(it.w.en)}`; P.fbClass="bad"; say(it.w.en); }
+  if(ok){
+    if(it.tries) retryHit(it); else grade(it,true);
+    it.diff=letterDiff(v,it.w.en); P.feedback = it.tries ? "יפה, תיקנת!" : "מצוין! נכון."; P.fbClass="good"; render(); autoNext(it); return;
+  }
+  it.w.miss = v.trim();
+  if(!it.tries){ firstMiss(it); it.diff=letterDiff(v,it.w.en); P.feedback="לא נכון. האותיות באדום לא במקום. נסו שוב, נשאר ניסיון אחד."; P.fbClass="bad"; it.typed=""; }
+  else { finalMiss(it); it.diff=letterDiff(it.w.en,it.w.en); P.feedback=`התשובה הנכונה: ${esc(it.w.en)}`; P.fbClass="bad"; say(it.w.en); }
   render(); focusSpell();
 }
 function focusSpell(){ const i=$("#spell"); if(i && !i.disabled) i.focus(); else { const n=$("#nextbtn"); if(n) n.focus(); } }
@@ -1341,13 +1349,16 @@ document.addEventListener("click", e=>{
   if(d.act==="netcheck") return netCheck();
   if(d.del!==undefined){ syncDraftInputs(); draft.words.splice(+d.del,1); return render(); }
   if(d.pick!==undefined && P){
-    const it=P.items[P.i]; if(it.done) return;
-    const val = it.opts[+d.pick], target = it.m==="learn"?it.w.he:it.w.en;
-    it.pick=+d.pick; const ok = val===target; grade(it, ok);
-    P.feedback = ok ? "נכון!" : `לא בדיוק. התשובה: ${esc(target)}`; P.fbClass = ok?"good":"bad";
-    render();
-    if(ok) return autoNext(it);
-    if(it.m==="reverse") say(it.w.en);
+    const it=P.items[P.i], k=+d.pick; if(it.done || (it.wrongPicks||[]).includes(k)) return;
+    const val = it.opts[k], target = it.m==="learn"?it.w.he:it.w.en;
+    if(val===target){
+      if(it.tries) retryHit(it); else grade(it,true);
+      P.feedback = it.tries ? "יפה, תיקנת!" : "נכון!"; P.fbClass="good"; render(); return autoNext(it);
+    }
+    it.wrongPicks = (it.wrongPicks||[]).concat(k);
+    if(!it.tries){ firstMiss(it); P.feedback="לא נכון. נסו שוב, נשאר ניסיון אחד."; P.fbClass="bad"; render(); return; }
+    finalMiss(it); P.feedback=`התשובה הנכונה: ${esc(target)}`; P.fbClass="bad"; render();
+    say(it.w.en);
     const n=$("#nextbtn"); if(n) n.focus(); return;
   }
   switch(d.act){
